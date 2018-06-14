@@ -3,23 +3,23 @@ CREATE KEYSPACE IF NOT EXISTS "evy"
 
 USE "evy";
 
--- username is the partitioning key, partitioning keys are mandatory.
--- there is no clustering column in users
-CREATE TABLE IF NOT EXISTS "users" (
-  "username" text PRIMARY KEY,
-  "email" text,
-  "encrypted_password" blob
-);
-
 -- _compound primary key_
 -- username is partitioning key (mandatory)
--- id is a "clustering column".
+-- encrypted_password is clustring column
+--
 -- The job of a clustering column is to determine the ordering
 -- of rows within a partition.
 --
--- CREATE TABLE "user_status_updates" (
---   "username" text,
---   "id" timeuuid,
---   "body" text,
---   PRIMARY KEY ("username", "id")
--- );
+--
+-- without password as part of compound primary key, following is not possible:
+-- select * from users where username='bob' and encrypted_password='veoa';
+--
+-- Cannot execute this query as it might involve data filtering and thus may
+-- have unpredictable performance. If you want to execute this query despite
+-- the performance unpredictability, use ALLOW FILTERING
+CREATE TABLE IF NOT EXISTS "users" (
+  "username" text,
+  "email" text,
+  "encrypted_password" text,
+  PRIMARY KEY ("username", "encrypted_password")
+);

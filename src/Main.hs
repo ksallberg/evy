@@ -12,28 +12,38 @@ import System.IO
 import qualified System.Logger as Logger
 
 data EState = EState {
+  th :: ClientState,
   user :: Maybe String
-} deriving (Show)
+}
 
 type X = (Text, Text, Text)
 
 main :: IO ()
 main = do
-  x <- userExists "bob"
-  y <- userExists "ciri"
-  putStrLn $ "x: " ++ show x ++ ", y: " ++ show y
--- main = loop EState{user = Nothing}
-
-userExists :: String -> IO Bool
-userExists usr = do
   q <- Logger.new Logger.defSettings
   c <- Client.init q defSettings
-  let q = fromString $ "SELECT * from evy.users where username='" ++ usr ++ "'"
-          :: QueryString Client.R () (Text, Text, Blob)
+  loop EState{user = Nothing, th = c}
+
+userExists :: EState -> String -> IO Bool
+userExists st usr = do
+  let q = fromString $ "SELECT * FROM evy.users WHERE username='" ++ usr ++ "'"
+          :: QueryString Client.R () (Text, Text, Text)
   let p = defQueryParams One ()
-  res <- runClient c (query q p)
-  shutdown c
+  res <- runClient (th st) (query q p)
   return $ res /= []
+
+userAndPasswordExists :: EState -> String -> String -> IO Bool
+userAndPasswordExists st usr pwd = do
+  let q = fromString ("SELECT * FROM evy.users WHERE username='" ++ usr ++ "'"
+                      ++ " AND encrypted_password='" ++ pwd ++ "'")
+          :: QueryString Client.R () (Text, Text, Text)
+  let p = defQueryParams One ()
+  res <- runClient (th st) (query q p)
+  return $ res /= []
+
+createUser :: String -> String -> String -> IO ()
+createUser username email password = do
+  putStrLn "hej"
 
 loop :: EState -> IO ()
 loop st = do
@@ -42,23 +52,30 @@ loop st = do
       putStrLn loginMenu
       choice <- getLine
       case choice of
-        "1" ->
-          login st
+        "1" -> do
+          newSt <- login st
+          loop newSt
         "2" ->
           register st
         _ ->
           putStrLn $ "user input: " ++ choice
     Just username -> do
+      putStrLn "welcome!"
       putStrLn appMenu
-      loop st
 
-login :: EState -> IO ()
+login :: EState -> IO EState
 login st = do
   putStrLn "enter username"
   username <- getLine
   putStrLn "enter password"
   password <- getPassword
-  putStrLn $ "ok! " ++ username ++ ", " ++ password
+  loginRes <- userAndPasswordExists st username password
+  case loginRes of
+    True ->
+      return st{user = Just username}
+    False -> do
+      putStrLn "login failed!"
+      return st
 
 register :: EState -> IO ()
 register st = do
