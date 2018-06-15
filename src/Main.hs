@@ -3,6 +3,7 @@ module Main where
 import Control.Exception
 import Data.Hash.MD5 (md5s, Str(..))
 import Data.Functor.Identity
+import Data.List (intersperse)
 import Data.Maybe
 import Data.String (fromString)
 import Data.Text (pack, Text)
@@ -17,7 +18,8 @@ data EState = EState {
   user :: Maybe String
 }
 
-type X = (Text, Text, Text)
+type UserR = QueryString Client.R () (Text, Text, Text)
+type UserW = QueryString Client.W () ()
 
 main :: IO ()
 main = do
@@ -27,8 +29,8 @@ main = do
 
 userExists :: EState -> String -> IO Bool
 userExists st usr = do
-  let q = fromString $ "SELECT * FROM evy.users WHERE username='" ++ usr ++ "'"
-          :: QueryString Client.R () (Text, Text, Text)
+  let q = fromString $ ("SELECT * FROM evy.users WHERE username='" ++
+                        usr ++ "'") :: UserR
   let p = defQueryParams One ()
   res <- runClient (th st) (query q p)
   return $ res /= []
@@ -36,16 +38,14 @@ userExists st usr = do
 userAndPasswordExists :: EState -> String -> String -> IO Bool
 userAndPasswordExists st usr pwd = do
   let q = fromString ("SELECT * FROM evy.users WHERE username='" ++ usr ++ "'"
-                      ++ " AND encrypted_password='" ++ pwd ++ "'")
-          :: QueryString Client.R () (Text, Text, Text)
+                      ++ " AND encrypted_password='" ++ pwd ++ "'") :: UserR
       p = defQueryParams One ()
   res <- runClient (th st) (query q p)
   return $ res /= []
 
 createUser :: EState -> String -> String -> String -> IO ()
 createUser st username email password = do
-  let q = fromString (createUserCQL username password email)
-          :: QueryString Client.W () ()
+  let q = fromString (createUserCQL username password email) :: UserW
       p = defQueryParams Quorum ()
   runClient (th st) (write q p)
 
@@ -59,7 +59,7 @@ loop :: EState -> IO ()
 loop st = do
   case (user st) of
     Nothing -> do
-      putStrLn loginMenu
+      prompt loginMenu
       choice <- getLine
       case choice of
         "1" -> do
@@ -75,8 +75,7 @@ loop st = do
           putStrLn "invalid choice"
           loop st
     Just username -> do
-      putStrLn $ "welcome " ++ username ++ "!"
-      putStrLn appMenu
+      prompt appMenu
       choice <- getLine
       case choice of
         "1" -> do
@@ -91,13 +90,14 @@ loop st = do
 
 login :: EState -> IO EState
 login st = do
-  putStrLn "enter username"
+  prompt "enter username"
   username <- getLine
-  putStrLn "enter password"
+  prompt "enter password"
   password <- getPassword
   loginRes <- userAndPasswordExists st username (md5s (Str password))
   case loginRes of
-    True ->
+    True -> do
+      putStrLn $ "welcome " ++ username ++ "!"
       return st{user = Just username}
     False -> do
       putStrLn "login failed!"
@@ -105,7 +105,7 @@ login st = do
 
 register :: EState -> IO ()
 register st = do
-  putStrLn "enter username"
+  prompt "enter username"
   username <- getLine
   exists <- userExists st username
   case exists of
@@ -113,15 +113,16 @@ register st = do
       putStrLn "already registered"
       loop st
     False -> do
-      putStrLn "enter password"
+      prompt "enter password"
       password <- getPassword
-      putStrLn "enter password again"
+      prompt "enter password again"
       password2 <- getPassword
-      putStrLn "enter email"
+      prompt "enter email"
       email <- getLine
       case password == password2 of
         True -> do
           createUser st username email (md5s (Str password))
+          putStrLn $ "welcome " ++ username ++ "!"
           loop st{user = Just username}
         False -> do
           putStrLn "passwords not matching"
@@ -130,10 +131,21 @@ register st = do
 --------------- helpers
 
 loginMenu :: String
-loginMenu = "1. Login\n2. Register\nq quit"
+loginMenu = let ls = [ "___________"
+                     , "1. Login"
+                     , "2. Register"
+                     , "q. quit"
+                     , "___________"
+                     ]
+            in concat $ intersperse "\n" ls
 
 appMenu :: String
-appMenu = "1. Ls portfolio\nq quit"
+appMenu = let ls = [ "_______________"
+                   , "1. Ls portfolio"
+                   , "q. quit"
+                   , "_______________"
+                   ]
+          in concat $ intersperse "\n" ls
 
 -- https://stackoverflow.com/questions/4064378/ \
 -- prompting-for-a-password-in-haskell-command-line-application
@@ -147,3 +159,9 @@ withEcho :: Bool -> IO a -> IO a
 withEcho echo action = do
   old <- hGetEcho stdin
   bracket_ (hSetEcho stdin echo) (hSetEcho stdin old) action
+
+prompt :: String -> IO ()
+prompt msg = do
+  putStrLn msg
+  putChar '>'
+  hFlush stdout
