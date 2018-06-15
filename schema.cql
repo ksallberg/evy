@@ -46,8 +46,10 @@ CREATE TABLE IF NOT EXISTS "entry" (
   "type" text, -- sell or buy
   "units" int,
   "price" FLOAT,
-  PRIMARY KEY ("id", "portfolio_id", "symbol")
+  PRIMARY KEY "id"
 );
+
+CREATE INDEX ON "entry" (portfolio_id);
 
 -- INSERT INTO entry (id, portfolio_id, symbol, type, units, price) VALUES (NOW(), NOW(), 'DPS', 'buy', 1, 232.2);
 -- SELECT * FROM entry;

@@ -4,6 +4,7 @@ import Control.Exception
 import Control.Monad (forM_)
 import Data.Hash.MD5 (md5s, Str(..))
 import Data.Functor.Identity
+import Data.Int (Int32(..))
 import Data.List (intersperse)
 import Data.Maybe
 import Data.String (fromString)
@@ -27,6 +28,7 @@ type UserW = QueryString Client.W () ()
 type PortfR = QueryString Client.R () (Identity Text)
 type PortfW = QueryString Client.W () ()
 
+type EntryR = QueryString Client.R () (UUID, UUID, Text, Float, Text, Int32)
 type EntryW = QueryString Client.W () ()
 
 main :: IO ()
@@ -66,6 +68,18 @@ createPortfolio st name = do
                       name (toString randUUID)) :: PortfW
       p = defQueryParams Quorum ()
   runClient (th st) (write q p)
+
+lsPortfolio :: EState -> String -> IO ()
+lsPortfolio st portfolioName = do
+  portfolioUUID <- portfolioNameToID st portfolioName
+  let cql = "SELECT * FROM evy.entry WHERE portfolio_id=" ++ portfolioUUID ++ ""
+      q = fromString cql :: EntryR
+      p = defQueryParams One ()
+      formatF = \(id, portid, name, _price, _type, units) ->
+        putStrLn ("name: " ++ (Data.Text.unpack name) ++
+                  ", units: " ++ (show units))
+  res <- runClient (th st) (query q p)
+  forM_ res formatF
 
 createUser :: EState -> String -> String -> String -> IO ()
 createUser st username email password = do
@@ -137,7 +151,7 @@ loop st = do
         "2" -> do -- Ls specific portfolio
           prompt "enter portfolio name"
           portfolioName <- getLine
-          putStrLn $ "lookup " ++ portfolioName
+          lsPortfolio st portfolioName
           loop st
         "3" -> do -- create portfolio
           prompt "enter portfolio name"
