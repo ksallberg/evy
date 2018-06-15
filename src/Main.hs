@@ -1,12 +1,13 @@
 module Main where
 
 import Control.Exception
+import Control.Monad (forM_)
 import Data.Hash.MD5 (md5s, Str(..))
 import Data.Functor.Identity
 import Data.List (intersperse)
 import Data.Maybe
 import Data.String (fromString)
-import Data.Text (pack, Text)
+import Data.Text (unpack, pack, Text)
 import Database.CQL.IO as Client
 import Database.CQL.Protocol
 import System.IO
@@ -20,6 +21,8 @@ data EState = EState {
 
 type UserR = QueryString Client.R () (Text, Text, Text)
 type UserW = QueryString Client.W () ()
+
+type PortfR = QueryString Client.R () (Identity Text)
 
 main :: IO ()
 main = do
@@ -42,6 +45,14 @@ userAndPasswordExists st usr pwd = do
       p = defQueryParams One ()
   res <- runClient (th st) (query q p)
   return $ res /= []
+
+getPortfolios :: EState -> IO [String]
+getPortfolios st = do
+  let q = fromString ("SELECT name FROM evy.portfolios WHERE owner='" ++
+                      (fromJust $ user st) ++ "'") :: PortfR
+      p = defQueryParams One ()
+  res <- runClient (th st) (query q p)
+  return $ map (Data.Text.unpack . (\(Identity x) -> x)) res
 
 createUser :: EState -> String -> String -> String -> IO ()
 createUser st username email password = do
@@ -78,8 +89,19 @@ loop st = do
       prompt appMenu
       choice <- getLine
       case choice of
-        "1" -> do
-          putStrLn "showing portfolio"
+        "1" -> do -- list portfolios
+          portfolios <- getPortfolios st
+          forM_ portfolios putStrLn
+          loop st
+        "2" -> do -- Ls specific portfolio
+          prompt ""
+          putStrLn "hej1"
+          loop st
+        "3" -> do
+          putStrLn "hej2"
+          loop st
+        "4" -> do
+          putStrLn "hej3"
           loop st
         "q" -> do
           putStrLn "logging out"
@@ -141,7 +163,10 @@ loginMenu = let ls = [ "___________"
 
 appMenu :: String
 appMenu = let ls = [ "_______________"
-                   , "1. Ls portfolio"
+                   , "1. List portfolios"
+                   , "2. Ls specific portfolio"
+                   , "3. Create portfolio"
+                   , "4. Add stock to portfolio"
                    , "q. quit"
                    , "_______________"
                    ]

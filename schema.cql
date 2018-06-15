@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS "portfolios" (
   PRIMARY KEY ("name", "owner")
 );
 
+-- index needed to be able to write "where owner='xxx'"
+CREATE INDEX ON "portfolios" (owner);
+
 -- INSERT INTO portfolios (name, owner, id) VALUES ('svenska', 'apa', NOW());
 -- SELECT * FROM portfolios;
 
