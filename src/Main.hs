@@ -8,7 +8,7 @@ import Data.List (intersperse)
 import Data.Maybe
 import Data.String (fromString)
 import Data.Text (unpack, pack, Text)
-import Data.UUID (toString)
+import Data.UUID (toString, UUID(..))
 import Data.UUID.V4 (nextRandom)
 import Database.CQL.IO as Client
 import Database.CQL.Protocol
@@ -26,6 +26,8 @@ type UserW = QueryString Client.W () ()
 
 type PortfR = QueryString Client.R () (Identity Text)
 type PortfW = QueryString Client.W () ()
+
+type EntryW = QueryString Client.W () ()
 
 main :: IO ()
 main = do
@@ -71,6 +73,23 @@ createUser st username email password = do
       p = defQueryParams Quorum ()
   runClient (th st) (write q p)
 
+createEntry :: EState -> String -> String -> IO ()
+createEntry st portfolioName stockSymbol = do
+  randUUID <- nextRandom
+  portfolioUUID <- portfolioNameToID st portfolioName
+  let q = fromString (createEntryCQL (toString randUUID)
+                      portfolioUUID stockSymbol) :: EntryW
+      p = defQueryParams Quorum ()
+  runClient (th st) (write q p)
+
+portfolioNameToID :: EState -> String -> IO String
+portfolioNameToID st portfolioName = do
+  let cql = "SELECT id FROM evy.portfolios WHERE name='" ++ portfolioName ++ "'"
+      q = fromString cql :: QueryString Client.R () (Identity UUID)
+      p = defQueryParams One ()
+  [Identity res] <- runClient (th st) (query q p)
+  return (toString res)
+
 createUserCQL :: String -> String -> String -> String
 createUserCQL user pass email =
   "INSERT INTO evy.users (username, encrypted_password, " ++
@@ -81,6 +100,12 @@ createPortfCQL :: String -> String -> String -> String
 createPortfCQL user portfName uuid =
   "INSERT INTO evy.portfolios (name, owner, id) VALUES" ++
   "('" ++ portfName ++ "', '" ++ user ++ "', " ++ uuid ++ ")"
+
+createEntryCQL :: String -> String -> String -> String
+createEntryCQL id portfolioID stockSymbol =
+  "INSERT INTO evy.entry (id, portfolio_id, symbol, type, units, price) VALUES"
+  ++ " ("++ id ++", " ++ portfolioID ++ ", '" ++ stockSymbol ++
+  "', 'buy', 1, 1.0)"
 
 loop :: EState -> IO ()
 loop st = do
@@ -110,16 +135,21 @@ loop st = do
           forM_ portfolios putStrLn
           loop st
         "2" -> do -- Ls specific portfolio
-          prompt ""
-          putStrLn "hej1"
+          prompt "enter portfolio name"
+          portfolioName <- getLine
+          putStrLn $ "lookup " ++ portfolioName
           loop st
-        "3" -> do
+        "3" -> do -- create portfolio
           prompt "enter portfolio name"
           portfName <- getLine
           createPortfolio st portfName
           loop st
-        "4" -> do
-          putStrLn "hej3"
+        "4" -> do -- add stock to portfolio
+          prompt "enter portfolio name"
+          portfolioName <- getLine
+          prompt "enter stock symbol"
+          stockSymbol <- getLine
+          createEntry st portfolioName stockSymbol
           loop st
         "q" -> do
           putStrLn "logging out"

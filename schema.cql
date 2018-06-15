@@ -40,8 +40,8 @@ CREATE INDEX ON "portfolios" (owner);
 -- SELECT * FROM portfolios;
 
 CREATE TABLE IF NOT EXISTS "entry" (
-  "id" timeuuid,
-  "portfolio_id" timeuuid,
+  "id" uuid,
+  "portfolio_id" uuid,
   "symbol" text,
   "type" text, -- sell or buy
   "units" int,
