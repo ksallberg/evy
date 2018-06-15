@@ -21,6 +21,7 @@ executable evy
                , text
                , MissingH
                , tinylog
+               , uuid
                , stocks == 0.2.0.0
   default-language:  Haskell2010
 

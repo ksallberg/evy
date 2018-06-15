@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS "users" (
 CREATE TABLE IF NOT EXISTS "portfolios" (
   "name" text,
   "owner" text, -- point to users.username
-  "id" timeuuid,
+  "id" uuid,
   PRIMARY KEY ("name", "owner")
 );
 

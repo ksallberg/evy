@@ -8,6 +8,8 @@ import Data.List (intersperse)
 import Data.Maybe
 import Data.String (fromString)
 import Data.Text (unpack, pack, Text)
+import Data.UUID (toString)
+import Data.UUID.V4 (nextRandom)
 import Database.CQL.IO as Client
 import Database.CQL.Protocol
 import System.IO
@@ -23,6 +25,7 @@ type UserR = QueryString Client.R () (Text, Text, Text)
 type UserW = QueryString Client.W () ()
 
 type PortfR = QueryString Client.R () (Identity Text)
+type PortfW = QueryString Client.W () ()
 
 main :: IO ()
 main = do
@@ -54,6 +57,14 @@ getPortfolios st = do
   res <- runClient (th st) (query q p)
   return $ map (Data.Text.unpack . (\(Identity x) -> x)) res
 
+createPortfolio :: EState -> String -> IO ()
+createPortfolio st name = do
+  randUUID <- nextRandom
+  let q = fromString (createPortfCQL (fromJust $ user st)
+                      name (toString randUUID)) :: PortfW
+      p = defQueryParams Quorum ()
+  runClient (th st) (write q p)
+
 createUser :: EState -> String -> String -> String -> IO ()
 createUser st username email password = do
   let q = fromString (createUserCQL username password email) :: UserW
@@ -65,6 +76,11 @@ createUserCQL user pass email =
   "INSERT INTO evy.users (username, encrypted_password, " ++
   "email) VALUES ('" ++ user ++ "', '" ++ pass ++
   "', '" ++ email ++ "')"
+
+createPortfCQL :: String -> String -> String -> String
+createPortfCQL user portfName uuid =
+  "INSERT INTO evy.portfolios (name, owner, id) VALUES" ++
+  "('" ++ portfName ++ "', '" ++ user ++ "', " ++ uuid ++ ")"
 
 loop :: EState -> IO ()
 loop st = do
@@ -98,7 +114,9 @@ loop st = do
           putStrLn "hej1"
           loop st
         "3" -> do
-          putStrLn "hej2"
+          prompt "enter portfolio name"
+          portfName <- getLine
+          createPortfolio st portfName
           loop st
         "4" -> do
           putStrLn "hej3"
