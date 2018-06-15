@@ -23,3 +23,28 @@ CREATE TABLE IF NOT EXISTS "users" (
   "encrypted_password" text,
   PRIMARY KEY ("username", "encrypted_password")
 );
+-- INSERT INTO users (username, email, encrypted_password) VALUES ('bob', 'a@a.se', 'pass');
+-- SELECT * FROM users;
+
+CREATE TABLE IF NOT EXISTS "portfolios" (
+  "name" text,
+  "owner" text, -- point to users.username
+  "id" timeuuid,
+  PRIMARY KEY ("name", "owner")
+);
+
+-- INSERT INTO portfolios (name, owner, id) VALUES ('svenska', 'apa', NOW());
+-- SELECT * FROM portfolios;
+
+CREATE TABLE IF NOT EXISTS "entry" (
+  "id" timeuuid,
+  "portfolio_id" timeuuid,
+  "symbol" text,
+  "type" text, -- sell or buy
+  "units" int,
+  "price" FLOAT,
+  PRIMARY KEY ("id", "portfolio_id", "symbol")
+);
+
+-- INSERT INTO entry (id, portfolio_id, symbol, type, units, price) VALUES (NOW(), NOW(), 'DPS', 'buy', 1, 232.2);
+-- SELECT * FROM entry;
