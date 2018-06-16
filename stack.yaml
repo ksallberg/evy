@@ -5,3 +5,4 @@ extra-deps:
 - stocks-0.2.0.0
 - cql-io-1.0.0
 - cql-4.0.1
+- tabl-1.0.3

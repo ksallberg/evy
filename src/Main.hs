@@ -14,11 +14,12 @@ import Data.UUID.V4 (nextRandom)
 import Database.CQL.IO as Client
 import Database.CQL.Protocol
 import System.IO
+import Text.Tabl
 
 import qualified System.Logger as Logger
 
 data EState = EState {
-  th :: ClientState,
+  th   :: ClientState,
   user :: Maybe String
 }
 
@@ -76,10 +77,12 @@ lsPortfolio st portfolioName = do
       q = fromString cql :: EntryR
       p = defQueryParams One ()
       formatF = \(id, portid, name, _price, _type, units) ->
-        putStrLn ("name: " ++ (Data.Text.unpack name) ++
-                  ", units: " ++ (show units))
+        [name, Data.Text.pack $ show units]
   res <- runClient (th st) (query q p)
-  forM_ res formatF
+  let header = [[Data.Text.pack "name", Data.Text.pack "units"]]
+      body   = map formatF res
+      tb     = tabl EnvAscii DecorAll DecorAll [AlignLeft] (header ++ body)
+  putStrLn $ Data.Text.unpack tb
 
 createUser :: EState -> String -> String -> String -> IO ()
 createUser st username email password = do
@@ -141,12 +144,16 @@ loop st = do
           putStrLn "invalid choice"
           loop st
     Just username -> do
-      prompt appMenu
+      prompt ""
       choice <- getLine
       case choice of
         "1" -> do -- list portfolios
           portfolios <- getPortfolios st
-          forM_ portfolios putStrLn
+          let header = [[Data.Text.pack "portfolio name"]]
+              body   = map (\x -> [Data.Text.pack x]) portfolios
+              tb     = tabl EnvAscii DecorAll DecorAll
+                       [AlignLeft] (header ++ body)
+          putStrLn $ Data.Text.unpack tb
           loop st
         "2" -> do -- Ls specific portfolio
           prompt "enter portfolio name"
@@ -165,6 +172,9 @@ loop st = do
           stockSymbol <- getLine
           createEntry st portfolioName stockSymbol
           loop st
+        "?" -> do
+          putStrLn appMenu
+          loop st
         "q" -> do
           putStrLn "logging out"
           loop st{user = Nothing}
@@ -182,6 +192,7 @@ login st = do
   case loginRes of
     True -> do
       putStrLn $ "welcome " ++ username ++ "!"
+      putStrLn appMenu
       return st{user = Just username}
     False -> do
       putStrLn "login failed!"
@@ -207,6 +218,7 @@ register st = do
         True -> do
           createUser st username email (md5s (Str password))
           putStrLn $ "welcome " ++ username ++ "!"
+          putStrLn appMenu
           loop st{user = Just username}
         False -> do
           putStrLn "passwords not matching"
@@ -215,24 +227,23 @@ register st = do
 --------------- helpers
 
 loginMenu :: String
-loginMenu = let ls = [ "___________"
-                     , "1. Login"
-                     , "2. Register"
-                     , "q. quit"
-                     , "___________"
+loginMenu = let ls = [ map Data.Text.pack ["1", "Login"]
+                     , map Data.Text.pack ["2", "Register"]
+                     , map Data.Text.pack ["q", "quit"]
                      ]
-            in concat $ intersperse "\n" ls
+                s = tabl EnvAscii DecorNone DecorAll [AlignLeft] ls
+            in Data.Text.unpack s
 
 appMenu :: String
-appMenu = let ls = [ "_______________"
-                   , "1. List portfolios"
-                   , "2. Ls specific portfolio"
-                   , "3. Create portfolio"
-                   , "4. Add stock to portfolio"
-                   , "q. quit"
-                   , "_______________"
+appMenu = let ls = [ map Data.Text.pack ["1", "List portfolios"]
+                   , map Data.Text.pack ["2", "Ls specific portfolio"]
+                   , map Data.Text.pack ["3", "Create portfolio"]
+                   , map Data.Text.pack ["4", "Add stock to portfolio"]
+                   , map Data.Text.pack ["?", "Show help menu"]
+                   , map Data.Text.pack ["q", "quit"]
                    ]
-          in concat $ intersperse "\n" ls
+              s = tabl EnvAscii DecorNone DecorAll [AlignLeft] ls
+          in Data.Text.unpack s
 
 -- https://stackoverflow.com/questions/4064378/ \
 -- prompting-for-a-password-in-haskell-command-line-application
@@ -250,5 +261,5 @@ withEcho echo action = do
 prompt :: String -> IO ()
 prompt msg = do
   putStrLn msg
-  putChar '>'
+  putStr "evy> "
   hFlush stdout
