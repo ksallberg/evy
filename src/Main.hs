@@ -72,16 +72,30 @@ createPortfolio st name = do
 
 lsPortfolio :: EState -> String -> IO ()
 lsPortfolio st portfolioName = do
-  portfolioUUID <- portfolioNameToID st portfolioName
-  let cql = "SELECT * FROM evy.entry WHERE portfolio_id=" ++ portfolioUUID ++ ""
-      q = fromString cql :: EntryR
-      p = defQueryParams One ()
-      formatF = \(id, portid, name, _price, _type, units) ->
-        [name, Data.Text.pack $ show units]
-  res <- runClient (th st) (query q p)
-  let header = [[Data.Text.pack "name", Data.Text.pack "units"]]
-      body   = map formatF res
-      tb     = tabl EnvAscii DecorAll DecorAll [AlignLeft] (header ++ body)
+  portfolioUUID0 <- portfolioNameToID st portfolioName
+  case portfolioUUID0 of
+    Just portfolioUUID -> do
+      let cql = "SELECT * FROM evy.entry WHERE portfolio_id=" ++
+                portfolioUUID ++ ""
+          q = fromString cql :: EntryR
+          p = defQueryParams One ()
+          formatF = \(id, portid, name, _price, _type, units) ->
+            [name, Data.Text.pack $ show units]
+      res <- runClient (th st) (query q p)
+      let header = [[Data.Text.pack "name", Data.Text.pack "units"]]
+          body   = map formatF res
+          tb     = tabl EnvAscii DecorAll DecorAll [AlignLeft] (header ++ body)
+      putStrLn $ Data.Text.unpack tb
+    Nothing ->
+      putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
+
+lsPortfolios :: EState -> IO ()
+lsPortfolios st = do
+  portfolios <- getPortfolios st
+  let header = [[Data.Text.pack "portfolio name"]]
+      body   = map (\x -> [Data.Text.pack x]) portfolios
+      tb     = tabl EnvAscii DecorAll DecorAll
+               [AlignLeft] (header ++ body)
   putStrLn $ Data.Text.unpack tb
 
 createUser :: EState -> String -> String -> String -> IO ()
@@ -93,19 +107,27 @@ createUser st username email password = do
 createEntry :: EState -> String -> String -> IO ()
 createEntry st portfolioName stockSymbol = do
   randUUID <- nextRandom
-  portfolioUUID <- portfolioNameToID st portfolioName
-  let q = fromString (createEntryCQL (toString randUUID)
-                      portfolioUUID stockSymbol) :: EntryW
-      p = defQueryParams Quorum ()
-  runClient (th st) (write q p)
+  portfolioUUID0 <- portfolioNameToID st portfolioName
+  case portfolioUUID0 of
+    Just portfolioUUID -> do
+      let q = fromString (createEntryCQL (toString randUUID)
+                          portfolioUUID stockSymbol) :: EntryW
+          p = defQueryParams Quorum ()
+      runClient (th st) (write q p)
+    Nothing ->
+      putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
 
-portfolioNameToID :: EState -> String -> IO String
+portfolioNameToID :: EState -> String -> IO (Maybe String)
 portfolioNameToID st portfolioName = do
   let cql = "SELECT id FROM evy.portfolios WHERE name='" ++ portfolioName ++ "'"
       q = fromString cql :: QueryString Client.R () (Identity UUID)
       p = defQueryParams One ()
-  [Identity res] <- runClient (th st) (query q p)
-  return (toString res)
+  unBoxed <- runClient (th st) (query q p)
+  case unBoxed of
+    [Identity res] ->
+      return $ Just (toString res)
+    _ ->
+      return Nothing
 
 createUserCQL :: String -> String -> String -> String
 createUserCQL user pass email =
@@ -148,12 +170,7 @@ loop st = do
       choice <- getLine
       case choice of
         "1" -> do -- list portfolios
-          portfolios <- getPortfolios st
-          let header = [[Data.Text.pack "portfolio name"]]
-              body   = map (\x -> [Data.Text.pack x]) portfolios
-              tb     = tabl EnvAscii DecorAll DecorAll
-                       [AlignLeft] (header ++ body)
-          putStrLn $ Data.Text.unpack tb
+          lsPortfolios st
           loop st
         "2" -> do -- Ls specific portfolio
           prompt "enter portfolio name"
