@@ -23,6 +23,7 @@ executable evy
                , tinylog
                , uuid
                , tabl
+               , ansi-terminal
                , stocks == 0.2.0.0
   default-language:  Haskell2010
 

@@ -13,10 +13,13 @@ import Data.UUID (toString, UUID(..))
 import Data.UUID.V4 (nextRandom)
 import Database.CQL.IO as Client
 import Database.CQL.Protocol
+import System.Console.ANSI
 import System.IO
 import Text.Tabl
 
 import qualified System.Logger as Logger
+import qualified Net.Stocks as Stocks
+import qualified Net.IEX.PriceTime as PriceTime
 
 data EState = EState {
   th   :: ClientState,
@@ -29,7 +32,7 @@ type UserW = QueryString Client.W () ()
 type PortfR = QueryString Client.R () (Identity Text)
 type PortfW = QueryString Client.W () ()
 
-type EntryR = QueryString Client.R () (UUID, UUID, Text, Float, Text, Int32)
+type EntryR = QueryString Client.R () (UUID, UUID, Float, Text, Text, Int32)
 type EntryW = QueryString Client.W () ()
 
 main :: IO ()
@@ -67,7 +70,7 @@ createPortfolio st name = do
   randUUID <- nextRandom
   let q = fromString (createPortfCQL (fromJust $ user st)
                       name (toString randUUID)) :: PortfW
-      p = defQueryParams Quorum ()
+      p = mkQueryParams
   runClient (th st) (write q p)
 
 lsPortfolio :: EState -> String -> IO ()
@@ -79,7 +82,7 @@ lsPortfolio st portfolioName = do
                 portfolioUUID ++ ""
           q = fromString cql :: EntryR
           p = defQueryParams One ()
-          formatF = \(id, portid, name, _price, _type, units) ->
+          formatF = \(id, portid, price, name, _type, units) ->
             [name, Data.Text.pack $ show units]
       res <- runClient (th st) (query q p)
       let header = [[Data.Text.pack "name", Data.Text.pack "units"]]
@@ -101,7 +104,7 @@ lsPortfolios st = do
 createUser :: EState -> String -> String -> String -> IO ()
 createUser st username email password = do
   let q = fromString (createUserCQL username password email) :: UserW
-      p = defQueryParams Quorum ()
+      p = mkQueryParams
   runClient (th st) (write q p)
 
 createEntry :: EState -> String -> String -> IO ()
@@ -112,7 +115,7 @@ createEntry st portfolioName stockSymbol = do
     Just portfolioUUID -> do
       let q = fromString (createEntryCQL (toString randUUID)
                           portfolioUUID stockSymbol) :: EntryW
-          p = defQueryParams Quorum ()
+          p = mkQueryParams
       runClient (th st) (write q p)
     Nothing ->
       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
@@ -173,24 +176,34 @@ loop st = do
           lsPortfolios st
           loop st
         "2" -> do -- Ls specific portfolio
-          prompt "enter portfolio name"
+          prompt "enter portfolio name:"
           portfolioName <- getLine
           lsPortfolio st portfolioName
           loop st
         "3" -> do -- create portfolio
-          prompt "enter portfolio name"
+          prompt "enter portfolio name:"
           portfName <- getLine
           createPortfolio st portfName
           loop st
         "4" -> do -- add stock to portfolio
-          prompt "enter portfolio name"
+          prompt "enter portfolio name:"
           portfolioName <- getLine
           prompt "enter stock symbol"
           stockSymbol <- getLine
           createEntry st portfolioName stockSymbol
           loop st
+        "5" -> do
+          prompt "enter stock name:"
+          stockName <- getLine
+          putStrLn $ "looking up " ++ stockName ++ "..."
+          pr <- Stocks.getPrice stockName
+          putStrLn $ "price: " ++ show (fromJust pr)
+          loop st
         "?" -> do
           putStrLn appMenu
+          loop st
+        "l" -> do
+          clearScreen
           loop st
         "q" -> do
           putStrLn "logging out"
@@ -256,7 +269,9 @@ appMenu = let ls = [ map Data.Text.pack ["1", "List portfolios"]
                    , map Data.Text.pack ["2", "Ls specific portfolio"]
                    , map Data.Text.pack ["3", "Create portfolio"]
                    , map Data.Text.pack ["4", "Add stock to portfolio"]
+                   , map Data.Text.pack ["5", "Show stock price"]
                    , map Data.Text.pack ["?", "Show help menu"]
+                   , map Data.Text.pack ["l", "Clear screen"]
                    , map Data.Text.pack ["q", "quit"]
                    ]
               s = tabl EnvAscii DecorNone DecorAll [AlignLeft] ls
@@ -280,3 +295,5 @@ prompt msg = do
   putStrLn msg
   putStr "evy> "
   hFlush stdout
+
+mkQueryParams = defQueryParams One () -- defQueryParams Quorum ()
