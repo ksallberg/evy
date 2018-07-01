@@ -41,9 +41,18 @@ main = do
   c <- Client.init q defSettings
   loop EState{user = Nothing, th = c}
 
+evyUsers :: String
+evyUsers = "SELECT username, email, encrypted_password FROM evy.users WHERE"
+
+-- (UUID, UUID, Float, Text, Text, Int32)
+-- \(id, portid, price, name, _type, units)
+evyEntries :: String
+evyEntries = "SELECT id, portfolio_id, price, symbol, type, units" ++
+             " FROM evy.entry WHERE portfolio_id="
+
 userExists :: EState -> String -> IO Bool
 userExists st usr = do
-  let q = fromString $ ("SELECT * FROM evy.users WHERE username='" ++
+  let q = fromString $ (evyUsers ++ " username='" ++
                         usr ++ "'") :: UserR
   let p = defQueryParams One ()
   res <- runClient (th st) (query q p)
@@ -51,7 +60,7 @@ userExists st usr = do
 
 userAndPasswordExists :: EState -> String -> String -> IO Bool
 userAndPasswordExists st usr pwd = do
-  let q = fromString ("SELECT * FROM evy.users WHERE username='" ++ usr ++ "'"
+  let q = fromString (evyUsers ++ " username='" ++ usr ++ "'"
                       ++ " AND encrypted_password='" ++ pwd ++ "'") :: UserR
       p = defQueryParams One ()
   res <- runClient (th st) (query q p)
@@ -78,8 +87,7 @@ lsPortfolio st portfolioName = do
   portfolioUUID0 <- portfolioNameToID st portfolioName
   case portfolioUUID0 of
     Just portfolioUUID -> do
-      let cql = "SELECT * FROM evy.entry WHERE portfolio_id=" ++
-                portfolioUUID ++ ""
+      let cql = evyEntries ++ portfolioUUID
           q = fromString cql :: EntryR
           p = defQueryParams One ()
           formatF = \(id, portid, price, name, _type, units) ->
