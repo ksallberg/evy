@@ -6,3 +6,5 @@ extra-deps:
 - cql-io-1.0.0
 - cql-4.0.1
 - tabl-1.0.3
+- brick-0.39
+- vty-5.23.1

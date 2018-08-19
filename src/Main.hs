@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 import Control.Exception
@@ -21,6 +23,13 @@ import qualified System.Logger as Logger
 import qualified Net.Stocks as Stocks
 import qualified Net.IEX.PriceTime as PriceTime
 
+import Brick
+import Brick.Widgets.Center
+import Brick.Widgets.Border
+import Brick.Widgets.Border.Style
+
+import Login (loginPrompt)
+
 data EState = EState {
   th   :: ClientState,
   user :: Maybe String
@@ -40,6 +49,12 @@ main = do
   q <- Logger.new (Logger.setLogLevel Logger.Fatal Logger.defSettings)
   c <- Client.init q defSettings
   loop EState{user = Nothing, th = c}
+
+ui :: Widget ()
+ui =
+    withBorderStyle unicode $
+    borderWithLabel (str "Hello!") $
+    (center (str "Left") <+> vBorder <+> center (str "Right"))
 
 evyUsers :: String
 evyUsers = "SELECT username, email, encrypted_password FROM evy.users WHERE"
@@ -222,10 +237,8 @@ loop st = do
 
 login :: EState -> IO EState
 login st = do
-  prompt "enter username"
-  username <- getLine
-  prompt "enter password"
-  password <- getPassword
+  (username, password) <- loginPrompt
+  putStrLn $ username ++ password
   loginRes <- userAndPasswordExists st username (md5s (Str password))
   case loginRes of
     True -> do
