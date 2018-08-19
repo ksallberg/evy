@@ -29,6 +29,7 @@ import Brick.Widgets.Border
 import Brick.Widgets.Border.Style
 
 import Login (loginPrompt)
+import IntroMenu (introMenuPrompt)
 
 data EState = EState {
   th   :: ClientState,
@@ -176,21 +177,20 @@ loop :: EState -> IO ()
 loop st = do
   case (user st) of
     Nothing -> do
-      prompt loginMenu
-      choice <- getLine
+      choice <- introMenuPrompt
+      putStrLn choice
       case choice of
-        "1" -> do
+        "Login" -> do
           newSt <- login st
           loop newSt
-        "2" ->
+        "Register" ->
           register st
-        "q" -> do
+        "Quit" -> do
           putStrLn "closing th"
           shutdown (th st)
           putStrLn "good bye"
-        _ -> do
-          putStrLn "invalid choice"
-          loop st
+        _ ->
+          putStrLn "Unknown alternative"
     Just username -> do
       prompt ""
       choice <- getLine
