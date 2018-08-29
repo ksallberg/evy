@@ -28,6 +28,7 @@ executable evy
                , vty
                , microlens
                , microlens-th
+               , vector
                , ansi-terminal
                , stocks == 0.2.0.0
   other-modules: Login

@@ -30,6 +30,7 @@ import Brick.Widgets.Border.Style
 
 import Login (loginPrompt)
 import IntroMenu (introMenuPrompt)
+import List (mainy)
 
 data EState = EState {
   th   :: ClientState,
@@ -108,11 +109,14 @@ lsPortfolio st portfolioName = do
           p = defQueryParams One ()
           formatF = \(id, portid, price, name, _type, units) ->
             [name, Data.Text.pack $ show units]
+          formatF2 = \(id, portid, price, name, _type, units) ->
+            Data.Text.unpack name
       res <- runClient (th st) (query q p)
       let header = [[Data.Text.pack "name", Data.Text.pack "units"]]
           body   = map formatF res
           tb     = tabl EnvAscii DecorAll DecorAll [AlignLeft] (header ++ body)
-      putStrLn $ Data.Text.unpack tb
+      mainy $ map formatF2 res
+      -- putStrLn $ Data.Text.unpack tb
     Nothing ->
       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
 
@@ -123,7 +127,8 @@ lsPortfolios st = do
       body   = map (\x -> [Data.Text.pack x]) portfolios
       tb     = tabl EnvAscii DecorAll DecorAll
                [AlignLeft] (header ++ body)
-  putStrLn $ Data.Text.unpack tb
+  -- putStrLn $ Data.Text.unpack tb
+  mainy $ portfolios
 
 createUser :: EState -> String -> String -> String -> IO ()
 createUser st username email password = do
