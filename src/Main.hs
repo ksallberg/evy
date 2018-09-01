@@ -99,7 +99,7 @@ createPortfolio st name = do
       p = mkQueryParams
   runClient (th st) (write q p)
 
-lsPortfolio :: EState -> String -> IO ()
+lsPortfolio :: EState -> String -> IO (Maybe String)
 lsPortfolio st portfolioName = do
   portfolioUUID0 <- portfolioNameToID st portfolioName
   case portfolioUUID0 of
@@ -117,10 +117,11 @@ lsPortfolio st portfolioName = do
           tb     = tabl EnvAscii DecorAll DecorAll [AlignLeft] (header ++ body)
       mainy $ map formatF2 res
       -- putStrLn $ Data.Text.unpack tb
-    Nothing ->
+    Nothing -> do
       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
+      return Nothing
 
-lsPortfolios :: EState -> IO ()
+lsPortfolios :: EState -> IO (Maybe String)
 lsPortfolios st = do
   portfolios <- getPortfolios st
   let header = [[Data.Text.pack "portfolio name"]]
@@ -181,64 +182,72 @@ createEntryCQL id portfolioID stockSymbol =
 loop :: EState -> IO ()
 loop st = do
   case (user st) of
-    Nothing -> do
-      choice <- introMenuPrompt
-      putStrLn choice
-      case choice of
-        "Login" -> do
-          newSt <- login st
-          loop newSt
-        "Register" ->
-          register st
-        "Quit" -> do
-          putStrLn "closing th"
-          shutdown (th st)
-          putStrLn "good bye"
-        _ ->
-          putStrLn "Unknown alternative"
-    Just username -> do
-      prompt ""
-      choice <- getLine
-      case choice of
-        "1" -> do -- list portfolios
-          lsPortfolios st
-          loop st
-        "2" -> do -- Ls specific portfolio
-          prompt "enter portfolio name:"
-          portfolioName <- getLine
-          lsPortfolio st portfolioName
-          loop st
-        "3" -> do -- create portfolio
-          prompt "enter portfolio name:"
-          portfName <- getLine
-          createPortfolio st portfName
-          loop st
-        "4" -> do -- add stock to portfolio
-          prompt "enter portfolio name:"
-          portfolioName <- getLine
-          prompt "enter stock symbol"
-          stockSymbol <- getLine
-          createEntry st portfolioName stockSymbol
-          loop st
-        "5" -> do
-          prompt "enter stock name:"
-          stockName <- getLine
-          putStrLn $ "looking up " ++ stockName ++ "..."
-          pr <- Stocks.getPrice stockName
-          putStrLn $ "price: " ++ show (fromJust pr)
-          loop st
-        "?" -> do
-          putStrLn appMenu
-          loop st
-        "l" -> do
-          clearScreen
-          loop st
-        "q" -> do
-          putStrLn "logging out"
-          loop st{user = Nothing}
-        _ -> do
-          putStrLn "invalid choice"
-          loop st
+    Nothing -> preLogin st
+    Just username -> postLogin st
+
+preLogin :: EState -> IO ()
+preLogin st = do
+  choice <- introMenuPrompt
+  putStrLn choice
+  case choice of
+    "Login" -> do
+      newSt <- login st
+      loop newSt
+    "Register" ->
+      register st
+    "Quit" -> do
+      putStrLn "closing th"
+      shutdown (th st)
+      putStrLn "good bye"
+    _ ->
+      putStrLn "Unknown alternative"
+
+postLogin :: EState -> IO ()
+postLogin st = do
+  prompt ""
+  choice <- getLine
+  case choice of
+    "1" -> displayPortfolio st
+    "3" -> do -- create portfolio
+      prompt "enter portfolio name:"
+      portfName <- getLine
+      createPortfolio st portfName
+      loop st
+    "4" -> do -- add stock to portfolio
+      prompt "enter portfolio name:"
+      portfolioName <- getLine
+      prompt "enter stock symbol"
+      stockSymbol <- getLine
+      createEntry st portfolioName stockSymbol
+      loop st
+    "5" -> do
+      prompt "enter stock name:"
+      stockName <- getLine
+      putStrLn $ "looking up " ++ stockName ++ "..."
+      pr <- Stocks.getPrice stockName
+      putStrLn $ "price: " ++ show (fromJust pr)
+      loop st
+    "?" -> do
+      putStrLn appMenu
+      loop st
+    "l" -> do
+      clearScreen
+      loop st
+    "q" -> do
+      putStrLn "logging out"
+      loop st{user = Nothing}
+    _ -> do
+      putStrLn "invalid choice"
+      loop st
+
+displayPortfolio :: EState -> IO ()
+displayPortfolio st = do
+  choice <- lsPortfolios st
+  case choice of
+    Nothing -> loop st
+    Just chosenPortfolio -> do
+      portfolioAns <- lsPortfolio st chosenPortfolio
+      displayPortfolio st
 
 login :: EState -> IO EState
 login st = do
@@ -292,7 +301,7 @@ loginMenu = let ls = [ map Data.Text.pack ["1", "Login"]
 
 appMenu :: String
 appMenu = let ls = [ map Data.Text.pack ["1", "List portfolios"]
-                   , map Data.Text.pack ["2", "Ls specific portfolio"]
+                   -- , map Data.Text.pack ["2", "Ls specific portfolio"]
                    , map Data.Text.pack ["3", "Create portfolio"]
                    , map Data.Text.pack ["4", "Add stock to portfolio"]
                    , map Data.Text.pack ["5", "Show stock price"]
