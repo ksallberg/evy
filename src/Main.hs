@@ -208,19 +208,12 @@ postLogin st = do
   choice <- getLine
   case choice of
     "1" -> displayPortfolio st
-    "3" -> do -- create portfolio
-      prompt "enter portfolio name:"
-      portfName <- getLine
-      createPortfolio st portfName
-      loop st
-    "4" -> do -- add stock to portfolio
-      prompt "enter portfolio name:"
-      portfolioName <- getLine
-      prompt "enter stock symbol"
-      stockSymbol <- getLine
-      createEntry st portfolioName stockSymbol
-      loop st
-    "5" -> do
+    -- "3" -> do -- create portfolio
+    --   prompt "enter portfolio name:"
+    --   portfName <- getLine
+    --   createPortfolio st portfName
+    --   loop st
+    "2" -> do
       prompt "enter stock name:"
       stockName <- getLine
       putStrLn $ "looking up " ++ stockName ++ "..."
@@ -245,8 +238,24 @@ displayPortfolio st = do
   choice <- lsPortfolios st
   case choice of
     Nothing -> loop st
-    Just chosenPortfolio -> do
-      portfolioAns <- lsPortfolio st chosenPortfolio
+    Just "add" -> do
+      prompt "enter portfolio name:"
+      portfName <- getLine
+      createPortfolio st portfName
+      displayPortfolio st
+    Just chosenPortfolio -> displayPortfolioChosen st chosenPortfolio
+
+-- when we are inside a portfolio
+displayPortfolioChosen :: EState -> String -> IO ()
+displayPortfolioChosen st name = do
+  portfolioAns <- lsPortfolio st name
+  case portfolioAns of
+    Just "add" -> do
+      prompt "enter stock symbol"
+      stockSymbol <- getLine
+      createEntry st name stockSymbol
+      displayPortfolioChosen st name
+    _ ->
       displayPortfolio st
 
 login :: EState -> IO EState
@@ -301,11 +310,8 @@ loginMenu = let ls = [ map Data.Text.pack ["1", "Login"]
 
 appMenu :: String
 appMenu = let ls = [ map Data.Text.pack ["1", "List portfolios"]
-                   -- , map Data.Text.pack ["2", "Ls specific portfolio"]
-                   , map Data.Text.pack ["3", "Create portfolio"]
-                   , map Data.Text.pack ["4", "Add stock to portfolio"]
-                   , map Data.Text.pack ["5", "Show stock price"]
-                   , map Data.Text.pack ["?", "Show help menu"]
+                   -- , map Data.Text.pack ["3", "Create portfolio"]
+                   , map Data.Text.pack ["2", "Show stock price"]
                    , map Data.Text.pack ["l", "Clear screen"]
                    , map Data.Text.pack ["q", "quit"]
                    ]
