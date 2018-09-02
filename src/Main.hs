@@ -208,11 +208,6 @@ postLogin st = do
   choice <- getLine
   case choice of
     "1" -> displayPortfolio st
-    -- "3" -> do -- create portfolio
-    --   prompt "enter portfolio name:"
-    --   portfName <- getLine
-    --   createPortfolio st portfName
-    --   loop st
     "2" -> do
       prompt "enter stock name:"
       stockName <- getLine
