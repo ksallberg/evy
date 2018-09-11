@@ -17,7 +17,6 @@ import Database.CQL.IO as Client
 import Database.CQL.Protocol
 import System.Console.ANSI
 import System.IO
-import Text.Tabl
 
 import qualified System.Logger as Logger
 import qualified Net.Stocks as Stocks
@@ -28,6 +27,7 @@ import Brick.Widgets.Center
 import Brick.Widgets.Border
 import Brick.Widgets.Border.Style
 
+import InputField (inputPrompt)
 import Register (registerPrompt)
 import Login (loginPrompt)
 import IntroMenu (introMenuPrompt)
@@ -108,16 +108,10 @@ lsPortfolio st portfolioName = do
       let cql = evyEntries ++ portfolioUUID
           q = fromString cql :: EntryR
           p = defQueryParams One ()
-          formatF = \(id, portid, price, name, _type, units) ->
-            [name, Data.Text.pack $ show units]
           formatF2 = \(id, portid, price, name, _type, units) ->
             Data.Text.unpack name
       res <- runClient (th st) (query q p)
-      let header = [[Data.Text.pack "name", Data.Text.pack "units"]]
-          body   = map formatF res
-          tb     = tabl EnvAscii DecorAll DecorAll [AlignLeft] (header ++ body)
       mainy $ map formatF2 res
-      -- putStrLn $ Data.Text.unpack tb
     Nothing -> do
       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
       return Nothing
@@ -125,11 +119,6 @@ lsPortfolio st portfolioName = do
 lsPortfolios :: EState -> IO (Maybe String)
 lsPortfolios st = do
   portfolios <- getPortfolios st
-  let header = [[Data.Text.pack "portfolio name"]]
-      body   = map (\x -> [Data.Text.pack x]) portfolios
-      tb     = tabl EnvAscii DecorAll DecorAll
-               [AlignLeft] (header ++ body)
-  -- putStrLn $ Data.Text.unpack tb
   mainy $ portfolios
 
 createUser :: EState -> String -> String -> String -> IO ()
@@ -184,12 +173,11 @@ loop :: EState -> IO ()
 loop st = do
   case (user st) of
     Nothing -> preLogin st
-    Just username -> postLogin st
+    Just username -> displayPortfolio st
 
 preLogin :: EState -> IO ()
 preLogin st = do
   choice <- introMenuPrompt
-  putStrLn choice
   case choice of
     "Login" -> do
       newSt <- login st
@@ -197,46 +185,26 @@ preLogin st = do
     "Register" ->
       register st
     "Quit" -> do
-      putStrLn "closing th"
       shutdown (th st)
-      putStrLn "good bye"
-    _ ->
-      putStrLn "Unknown alternative"
+      return ()
 
-postLogin :: EState -> IO ()
-postLogin st = do
-  prompt ""
-  choice <- getLine
-  case choice of
-    "1" -> displayPortfolio st
-    "2" -> do
-      prompt "enter stock name:"
-      stockName <- getLine
-      putStrLn $ "looking up " ++ stockName ++ "..."
-      pr <- Stocks.getPrice stockName
-      putStrLn $ "price: " ++ show (fromJust pr)
-      loop st
-    "?" -> do
-      putStrLn appMenu
-      loop st
-    "l" -> do
-      clearScreen
-      loop st
-    "q" -> do
-      putStrLn "logging out"
-      loop st{user = Nothing}
-    _ -> do
-      putStrLn "invalid choice"
-      loop st
+getQuote :: EState -> IO ()
+getQuote st = do
+  stockName <- inputPrompt "enter stock name"
+  pr <- Stocks.getPrice stockName
+  _ <- inputPrompt $ "price: " ++ show (fromJust pr)
+  return ()
 
 displayPortfolio :: EState -> IO ()
 displayPortfolio st = do
   choice <- lsPortfolios st
   case choice of
-    Nothing -> loop st
+    Nothing -> loop st{user = Nothing}
+    Just "qte" -> do
+      getQuote st
+      displayPortfolio st
     Just "add" -> do
-      prompt "enter portfolio name:"
-      portfName <- getLine
+      portfName <- inputPrompt "enter portfolio name"
       createPortfolio st portfName
       displayPortfolio st
     Just chosenPortfolio -> displayPortfolioChosen st chosenPortfolio
@@ -246,9 +214,11 @@ displayPortfolioChosen :: EState -> String -> IO ()
 displayPortfolioChosen st name = do
   portfolioAns <- lsPortfolio st name
   case portfolioAns of
+    Just "qte" -> do
+      getQuote st
+      displayPortfolioChosen st name
     Just "add" -> do
-      prompt "enter stock symbol"
-      stockSymbol <- getLine
+      stockSymbol <- inputPrompt "enter stock symbol"
       createEntry st name stockSymbol
       displayPortfolioChosen st name
     _ ->
@@ -257,15 +227,11 @@ displayPortfolioChosen st name = do
 login :: EState -> IO EState
 login st = do
   (username, password) <- loginPrompt
-  putStrLn $ username ++ password
   loginRes <- userAndPasswordExists st username (md5s (Str password))
   case loginRes of
     True -> do
-      putStrLn $ "welcome " ++ username ++ "!"
-      putStrLn appMenu
       return st{user = Just username}
     False -> do
-      putStrLn "login failed!"
       return st
 
 register :: EState -> IO ()
@@ -274,56 +240,15 @@ register st = do
   exists <- userExists st username
   case exists of
     True -> do
-      putStrLn "already registered"
       loop st
     False -> do
       case password == password2 of
         True -> do
           createUser st username email (md5s (Str password))
-          putStrLn $ "welcome " ++ username ++ "!"
-          putStrLn appMenu
           loop st{user = Just username}
         False -> do
-          putStrLn "passwords not matching"
           loop st
 
 --------------- helpers
-
-loginMenu :: String
-loginMenu = let ls = [ map Data.Text.pack ["1", "Login"]
-                     , map Data.Text.pack ["2", "Register"]
-                     , map Data.Text.pack ["q", "quit"]
-                     ]
-                s = tabl EnvAscii DecorNone DecorAll [AlignLeft] ls
-            in Data.Text.unpack s
-
-appMenu :: String
-appMenu = let ls = [ map Data.Text.pack ["1", "List portfolios"]
-                   -- , map Data.Text.pack ["3", "Create portfolio"]
-                   , map Data.Text.pack ["2", "Show stock price"]
-                   , map Data.Text.pack ["l", "Clear screen"]
-                   , map Data.Text.pack ["q", "quit"]
-                   ]
-              s = tabl EnvAscii DecorNone DecorAll [AlignLeft] ls
-          in Data.Text.unpack s
-
--- https://stackoverflow.com/questions/4064378/ \
--- prompting-for-a-password-in-haskell-command-line-application
-getPassword :: IO String
-getPassword = do
-  pass <- withEcho False getLine
-  putChar '\n'
-  return pass
-
-withEcho :: Bool -> IO a -> IO a
-withEcho echo action = do
-  old <- hGetEcho stdin
-  bracket_ (hSetEcho stdin echo) (hSetEcho stdin old) action
-
-prompt :: String -> IO ()
-prompt msg = do
-  putStrLn msg
-  putStr "evy> "
-  hFlush stdout
 
 mkQueryParams = defQueryParams One () -- defQueryParams Quorum ()

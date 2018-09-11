@@ -31,7 +31,7 @@ import Brick.Widgets.Core
 import Brick.Util (fg, on)
 
 desc :: String
-desc = "Press a to add. Press Esc to exit."
+desc = "Press a to add. Press q to get quote. Press Esc to exit."
 
 drawUI :: (Show a) => L.List () a -> [Widget ()]
 drawUI l = [ui]
@@ -58,10 +58,9 @@ appEvent l (T.VtyEvent e) =
         V.EvKey V.KEsc [] -> M.halt (L.list () (Vec.fromList []) 0)
         V.EvKey V.KEnter [] -> M.halt l
         V.EvKey (V.KChar 'a') [] -> M.halt (L.list () (Vec.fromList ["add"]) 1)
+        V.EvKey (V.KChar 'q') [] -> M.halt (L.list () (Vec.fromList ["qte"]) 1)
         ev -> M.continue =<< L.handleListEvent ev l
     where
-      -- nextElement :: Vec.Vector String -> String
-      -- nextElement v = fromMaybe "?" $ Vec.find (flip Vec.notElem v) (Vec.fromList ["d", "a", "f", "g", "e"])
       cur = case l^.(L.listSelectedL) of
                 Nothing -> "-"
                 Just i -> (show (i + 1))
