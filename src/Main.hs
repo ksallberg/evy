@@ -28,6 +28,7 @@ import Brick.Widgets.Center
 import Brick.Widgets.Border
 import Brick.Widgets.Border.Style
 
+import Register (registerPrompt)
 import Login (loginPrompt)
 import IntroMenu (introMenuPrompt)
 import List (mainy)
@@ -269,20 +270,13 @@ login st = do
 
 register :: EState -> IO ()
 register st = do
-  prompt "enter username"
-  username <- getLine
+  (username, password, password2, email) <- registerPrompt
   exists <- userExists st username
   case exists of
     True -> do
       putStrLn "already registered"
       loop st
     False -> do
-      prompt "enter password"
-      password <- getPassword
-      prompt "enter password again"
-      password2 <- getPassword
-      prompt "enter email"
-      email <- getLine
       case password == password2 of
         True -> do
           createUser st username email (md5s (Str password))
