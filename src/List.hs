@@ -33,10 +33,10 @@ import Brick.Util (fg, on)
 desc :: String
 desc = "Press a to add. Press q to get quote. Press Esc to exit."
 
-drawUI :: (Show a) => L.List () a -> [Widget ()]
-drawUI l = [ui]
+drawUI :: (Show a) => String -> L.List () a -> [Widget ()]
+drawUI strx l = [ui]
     where
-        label = str "Item " <+> cur <+> str " of " <+> total
+        label = str strx <+> cur <+> str " of " <+> total
         cur = case l^.(L.listSelectedL) of
                 Nothing -> str "-"
                 Just i -> str (show (i + 1))
@@ -44,7 +44,7 @@ drawUI l = [ui]
         box = B.borderWithLabel label $
               hLimit 225 $
               vLimit 15 $
-              L.renderList listDrawElement True l
+              L.renderList (listDrawElement strx) True l
         ui = C.vCenter $ vBox [ C.hCenter box
                               , str " "
                               , C.hCenter $ str desc
@@ -66,12 +66,12 @@ appEvent l (T.VtyEvent e) =
                 Just i -> (show (i + 1))
 appEvent l _ = M.continue l
 
-listDrawElement :: (Show a) => Bool -> a -> Widget ()
-listDrawElement sel a =
+listDrawElement :: (Show a) => String -> Bool -> a -> Widget ()
+listDrawElement strx sel a =
     let selStr s = if sel
                    then withAttr customAttr (str $ "<" <> s <> ">")
                    else str s
-    in C.hCenter $ str "Item " <+> (selStr $ show a)
+    in C.hCenter $ str strx <+> (selStr $ show a)
 
 initialState :: [String] -> L.List () String
 initialState i = L.list () (Vec.fromList i) 1
@@ -86,18 +86,18 @@ theMap = A.attrMap V.defAttr
     , (customAttr,            fg V.black)
     ]
 
-theApp :: M.App (L.List () String) e ()
-theApp =
-    M.App { M.appDraw = drawUI
+theApp :: String -> M.App (L.List () String) e ()
+theApp str =
+    M.App { M.appDraw = (drawUI str)
           , M.appChooseCursor = M.showFirstCursor
           , M.appHandleEvent = appEvent
           , M.appStartEvent = return
           , M.appAttrMap = const theMap
           }
 
-mainy :: [String] -> IO (Maybe String)
-mainy i = do
-  l <- M.defaultMain theApp (initialState i)
+listPrompt :: String -> [String] -> IO (Maybe String)
+listPrompt descr i = do
+  l <- M.defaultMain (theApp descr) (initialState i)
   case Vec.toList (L.listElements l) of
     []      -> return Nothing
     ["add"] -> return $ Just "add"

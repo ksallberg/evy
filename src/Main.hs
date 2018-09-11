@@ -31,7 +31,7 @@ import InputField (inputPrompt)
 import Register (registerPrompt)
 import Login (loginPrompt)
 import IntroMenu (introMenuPrompt)
-import List (mainy)
+import List (listPrompt)
 
 data EState = EState {
   th   :: ClientState,
@@ -111,7 +111,7 @@ lsPortfolio st portfolioName = do
           formatF2 = \(id, portid, price, name, _type, units) ->
             Data.Text.unpack name
       res <- runClient (th st) (query q p)
-      mainy $ map formatF2 res
+      listPrompt "Stock " (map formatF2 res)
     Nothing -> do
       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
       return Nothing
@@ -119,7 +119,7 @@ lsPortfolio st portfolioName = do
 lsPortfolios :: EState -> IO (Maybe String)
 lsPortfolios st = do
   portfolios <- getPortfolios st
-  mainy $ portfolios
+  listPrompt "Portfolio" portfolios
 
 createUser :: EState -> String -> String -> String -> IO ()
 createUser st username email password = do
