@@ -20,6 +20,7 @@ executable evy
                , cql
                , cql-io
                , text
+               , time
                , MissingH
                , tinylog
                , uuid

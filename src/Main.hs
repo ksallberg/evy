@@ -13,6 +13,7 @@ import Data.String (fromString)
 import Data.Text (unpack, pack, Text)
 import Data.UUID (toString, UUID(..))
 import Data.UUID.V4 (nextRandom)
+import Data.Time (getCurrentTime)
 import Database.CQL.IO as Client
 import Database.CQL.Protocol
 import System.Console.ANSI
@@ -131,10 +132,12 @@ createEntry :: EState -> String -> String -> IO ()
 createEntry st portfolioName stockSymbol = do
   randUUID <- nextRandom
   portfolioUUID0 <- portfolioNameToID st portfolioName
+  curT <- getCurrentTime
   case portfolioUUID0 of
     Just portfolioUUID -> do
-      let q = fromString (createEntryCQL (toString randUUID)
-                          portfolioUUID stockSymbol) :: EntryW
+      let timestamp = "'" ++ take 19 (show curT) ++ "+0200'"
+          q = fromString (createEntryCQL (toString randUUID)
+                          portfolioUUID stockSymbol timestamp) :: EntryW
           p = mkQueryParams
       runClient (th st) (write q p)
     Nothing ->
@@ -163,11 +166,11 @@ createPortfCQL user portfName uuid =
   "INSERT INTO evy.portfolios (name, owner, id) VALUES" ++
   "('" ++ portfName ++ "', '" ++ user ++ "', " ++ uuid ++ ")"
 
-createEntryCQL :: String -> String -> String -> String
-createEntryCQL id portfolioID stockSymbol =
-  "INSERT INTO evy.entry (id, portfolio_id, symbol, type, units, price) VALUES"
-  ++ " ("++ id ++", " ++ portfolioID ++ ", '" ++ stockSymbol ++
-  "', 'buy', 1, 1.0)"
+createEntryCQL :: String -> String -> String -> String -> String
+createEntryCQL id portfolioID stockSymbol curTime =
+  "INSERT INTO evy.entry (id, portfolio_id, symbol, type, units, price, when) "
+  ++ "VALUES" ++ " ("++ id ++", " ++ portfolioID ++ ", '" ++ stockSymbol ++
+  "', 'buy', 1, 1.0, " ++ curTime ++ ")"
 
 loop :: EState -> IO ()
 loop st = do

@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS "entry" (
   "type" text, -- sell or buy
   "units" int,
   "price" FLOAT,
+  "when" timestamp,
   PRIMARY KEY ("id")
 );
 
