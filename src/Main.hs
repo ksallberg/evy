@@ -135,10 +135,11 @@ createEntry st portfolioName stockSymbol = do
   curT <- getCurrentTime
   case portfolioUUID0 of
     Just portfolioUUID -> do
-      let timestamp = "'" ++ take 19 (show curT) ++ "+0200'"
+      let timestamp = "'" ++ (take 19 (show curT)) ++ "-0200'"
           q = fromString (createEntryCQL (toString randUUID)
                           portfolioUUID stockSymbol timestamp) :: EntryW
           p = mkQueryParams
+      putStrLn timestamp
       runClient (th st) (write q p)
     Nothing ->
       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
