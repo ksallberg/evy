@@ -1,5 +1,5 @@
 name:                evy
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            the app
 description:         ...
 homepage:            none
@@ -29,7 +29,7 @@ executable evy
                , microlens-th
                , vector
                , ansi-terminal
-               , stocks == 0.2.0.0
+               , stocks
   other-modules: Login
                , IntroMenu
                , List

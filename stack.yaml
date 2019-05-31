@@ -2,9 +2,10 @@ resolver: lts-10.6
 packages:
 - .
 extra-deps:
-- stocks-0.2.0.0
 - cql-io-1.0.0
 - cql-4.0.1
 - tabl-1.0.3
 - brick-0.39
 - vty-5.23.1
+- git: git@github.com:dabcoder/stocks.git
+  commit: 04380140ee168ad62b9a95ed0e3d0ba4a120d393
