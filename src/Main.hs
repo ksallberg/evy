@@ -14,10 +14,12 @@ import Data.Text (unpack, pack, Text)
 import Data.UUID (toString, UUID(..))
 import Data.UUID.V4 (nextRandom)
 import Data.Time (getCurrentTime)
+import Data.Time.Clock (UTCTime)
 import Database.CQL.IO as Client
 import Database.CQL.Protocol
 import System.Console.ANSI
 import System.IO
+import System.IO.Unsafe (unsafePerformIO)
 
 import qualified System.Logger as Logger
 import qualified Net.Stocks as Stocks
@@ -45,7 +47,8 @@ type UserW = QueryString Client.W () ()
 type PortfR = QueryString Client.R () (Identity Text)
 type PortfW = QueryString Client.W () ()
 
-type EntryR = QueryString Client.R () (UUID, UUID, Float, Text, Text, Int32)
+type EntryR = QueryString Client.R () (UUID, UUID, Float, Text,
+                                       Text, Int32, UTCTime)
 type EntryW = QueryString Client.W () ()
 
 main :: IO ()
@@ -66,7 +69,7 @@ evyUsers = "SELECT username, email, encrypted_password FROM evy.users WHERE"
 -- (UUID, UUID, Float, Text, Text, Int32)
 -- \(id, portid, price, name, _type, units)
 evyEntries :: String
-evyEntries = "SELECT id, portfolio_id, price, symbol, type, units" ++
+evyEntries = "SELECT id, portfolio_id, price, symbol, type, units, when" ++
              " FROM evy.entry WHERE portfolio_id="
 
 userExists :: EState -> String -> IO Bool
@@ -109,13 +112,23 @@ lsPortfolio st portfolioName = do
       let cql = evyEntries ++ portfolioUUID
           q = fromString cql :: EntryR
           p = defQueryParams One ()
-          formatF2 = \(id, portid, price, name, _type, units) ->
-            Data.Text.unpack name
       res <- runClient (th st) (query q p)
-      listPrompt "Stock " (map formatF2 res)
+      listPrompt "Stock " (map formatStock res)
     Nothing -> do
       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
       return Nothing
+
+formatStock (id, portid, price, name, _type, units, date) =
+  strName ++ (show date) ++ (getDiff strName price)
+  where strName = (Data.Text.unpack name)
+
+getDiff :: String -> Float -> String
+getDiff ticker oldprice =
+  case (unsafePerformIO (Stocks.getPrice ticker)) of
+    Nothing ->
+      "?%"
+    Just newPrice ->
+      show newPrice
 
 lsPortfolios :: EState -> IO (Maybe String)
 lsPortfolios st = do
