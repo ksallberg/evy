@@ -18,6 +18,7 @@ import Data.Time.Clock (UTCTime)
 import Database.CQL.IO as Client
 import Database.CQL.Protocol
 import System.Console.ANSI
+import System.Environment (getEnv)
 import System.IO
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -38,7 +39,8 @@ import List (listPrompt)
 
 data EState = EState {
   th   :: ClientState,
-  user :: Maybe String
+  user :: Maybe String,
+  iexAPIToken :: String
 }
 
 type UserR = QueryString Client.R () (Text, Text, Text)
@@ -55,7 +57,7 @@ main :: IO ()
 main = do
   q <- Logger.new (Logger.setLogLevel Logger.Fatal Logger.defSettings)
   c <- Client.init q defSettings
-  loop EState{user = Nothing, th = c}
+  loop EState{user = Nothing, th = c, iexAPIToken=""}
 
 ui :: Widget ()
 ui =
@@ -113,22 +115,23 @@ lsPortfolio st portfolioName = do
           q = fromString cql :: EntryR
           p = defQueryParams One ()
       res <- runClient (th st) (query q p)
-      listPrompt "Stock " (map formatStock res)
+      let res2 = [(st, r) | r <- res]
+      listPrompt "_" (map formatStock res2)
     Nothing -> do
       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
       return Nothing
 
-formatStock (id, portid, price, name, _type, units, date) =
-  strName ++ (show date) ++ (getDiff strName price)
+formatStock (state, (id, portid, price, name, _type, units, date)) =
+  strName ++ (show date) ++ (getDiff state strName price)
   where strName = (Data.Text.unpack name)
 
-getDiff :: String -> Float -> String
-getDiff ticker oldprice =
-  case (unsafePerformIO (Stocks.getPrice ticker)) of
+getDiff :: EState -> String -> Float -> String
+getDiff state ticker oldprice =
+  case (unsafePerformIO (Stocks.getPrice (iexAPIToken state, ticker))) of
     Nothing ->
       "?%"
     Just newPrice ->
-      show newPrice
+      " |" ++ show newPrice ++ "| "
 
 lsPortfolios :: EState -> IO (Maybe String)
 lsPortfolios st = do
@@ -148,12 +151,17 @@ createEntry st portfolioName stockSymbol = do
   curT <- getCurrentTime
   case portfolioUUID0 of
     Just portfolioUUID -> do
-      let timestamp = "'" ++ (take 19 (show curT)) ++ "-0200'"
-          q = fromString (createEntryCQL (toString randUUID)
-                          portfolioUUID stockSymbol timestamp) :: EntryW
-          p = mkQueryParams
-      putStrLn timestamp
-      runClient (th st) (write q p)
+      priceAsk <- Stocks.getPrice (iexAPIToken st, stockSymbol)
+      case priceAsk of
+        Nothing ->
+          putStrLn $ "Error: could not fetch price for " ++ stockSymbol
+        Just (price) -> do
+          let timestamp = "'" ++ (take 19 (show curT)) ++ "-0200'"
+              q = fromString (createEntryCQL (toString randUUID)
+                              portfolioUUID stockSymbol
+                              timestamp (show price)) :: EntryW
+              p = mkQueryParams
+          runClient (th st) (write q p)
     Nothing ->
       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
 
@@ -180,11 +188,11 @@ createPortfCQL user portfName uuid =
   "INSERT INTO evy.portfolios (name, owner, id) VALUES" ++
   "('" ++ portfName ++ "', '" ++ user ++ "', " ++ uuid ++ ")"
 
-createEntryCQL :: String -> String -> String -> String -> String
-createEntryCQL id portfolioID stockSymbol curTime =
+createEntryCQL :: String -> String -> String -> String -> String -> String
+createEntryCQL id portfolioID stockSymbol curTime price =
   "INSERT INTO evy.entry (id, portfolio_id, symbol, type, units, price, when) "
   ++ "VALUES" ++ " ("++ id ++", " ++ portfolioID ++ ", '" ++ stockSymbol ++
-  "', 'buy', 1, 1.0, " ++ curTime ++ ")"
+  "', 'buy', 1, " ++ price ++ ", " ++ curTime ++ ")"
 
 loop :: EState -> IO ()
 loop st = do
@@ -208,7 +216,7 @@ preLogin st = do
 getQuote :: EState -> IO ()
 getQuote st = do
   stockName <- inputPrompt "enter stock name"
-  pr <- Stocks.getPrice stockName
+  pr <- Stocks.getPrice (iexAPIToken st, stockName)
   _ <- inputPrompt $ "price: " ++ show (fromJust pr)
   return ()
 
@@ -247,7 +255,8 @@ login st = do
   loginRes <- userAndPasswordExists st username (md5s (Str password))
   case loginRes of
     True -> do
-      return st{user = Just username}
+      apiToken <- getEnv "IEXAPITOKEN"
+      return st{user = Just username, iexAPIToken = apiToken}
     False -> do
       return st
 

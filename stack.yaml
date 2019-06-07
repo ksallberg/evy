@@ -8,4 +8,4 @@ extra-deps:
 - brick-0.39
 - vty-5.23.1
 - git: git@github.com:dabcoder/stocks.git
-  commit: 04380140ee168ad62b9a95ed0e3d0ba4a120d393
+  commit: 068b4bbabe3f08d41c9c25bb653b6f56799de39a

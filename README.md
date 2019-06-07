@@ -17,7 +17,7 @@ stack build --extra-lib-dirs=/usr/local/Cellar/openssl/1.0.2o_1/lib/ --extra-inc
 
 ## executing
 
-stack exec evy
+IEXAPITOKEN=secretAPIToken stack exec evy
 
 ## cqlsh
 
