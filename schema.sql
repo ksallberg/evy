@@ -30,10 +30,10 @@ INSERT INTO Account (username, email, encrypted_password)
 SELECT * FROM Account;
 
 CREATE TABLE Portfolio (
-  id SERIAL,
-  name varchar(20) NOT NULL UNIQUE,
+  id SERIAL UNIQUE,
+  name varchar(20) NOT NULL,
   owner varchar(20) NOT NULL,
-  PRIMARY KEY (id),
+  PRIMARY KEY (name, owner),
   FOREIGN KEY (owner) REFERENCES Account(username)
 );
 
