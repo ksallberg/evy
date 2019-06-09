@@ -16,8 +16,8 @@ USE evy;
 
 CREATE TABLE Account (
   username varchar(10) NOT NULL,
-  email varchar(20) NOT NULL,
-  encrypted_password varchar(25) NOT NULL,
+  email varchar(50) NOT NULL,
+  encrypted_password varchar(250) NOT NULL,
   PRIMARY KEY (username)
 );
 
