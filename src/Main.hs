@@ -84,7 +84,7 @@ data Entry = Entry { portid :: Integer,
                      etype :: Text,
                      units :: Integer,
                      price :: Double,
-                     ts :: Text
+                     ts :: UTCTime
                    } deriving Show
 
 instance FromRow Entry where
@@ -110,15 +110,6 @@ ui =
     withBorderStyle unicode $
     borderWithLabel (str "Hello!") $
     (center (str "Left") <+> vBorder <+> center (str "Right"))
-
-evyUsers :: String
-evyUsers = "SELECT username, email, encrypted_password FROM evy.users WHERE"
-
--- (UUID, UUID, Float, Text, Text, Int32)
--- \(id, portid, price, name, _type, units)
--- evyEntries :: String
--- evyEntries = "SELECT id, portfolio_id, price, symbol, type, units, when" ++
---              " FROM evy.entry WHERE portfolio_id="
 
 allAccounts :: Connection -> IO [Account]
 allAccounts c =
@@ -152,15 +143,21 @@ createPortfolio st pname = do
 
 lsPortfolio :: EState -> String -> IO (Maybe String)
 lsPortfolio st portfolioName = do
-  portfolioUUID0 <- portfolioNameToID st portfolioName
-  let res2 = [(st, ("1", "1", 1.2, "hej", "haj", 23, "2019-02-23 23:32"))]
-  listPrompt "_" (map formatStock res2)
+  portfolioID <- portfolioNameToID st portfolioName
+  portfolioList <- (query (th st)
+                    "SELECT portfolio_id, symbol, type, units, price, ts FROM Entry WHERE portfolio_id=?"
+                    [(portfolioID)]) :: IO [Entry]
+  let plist2 = [(st, p) | p <- portfolioList]
+  listPrompt "_" (map formatStock plist2)
 
-formatStock (state, (id, portid, price, name, _type, units, date)) =
+formatStock (state, Entry{symbol=name,
+                          ts=date,
+                          price=price
+                          }) =
   strName ++ (show date) ++ (getDiff state strName price)
   where strName = (Data.Text.unpack name)
 
-getDiff :: EState -> String -> Float -> String
+getDiff :: EState -> String -> Double -> String
 getDiff state ticker oldprice =
   case (unsafePerformIO (Stocks.getPrice (iexAPIToken state, ticker))) of
     Nothing ->
@@ -177,6 +174,9 @@ lsPortfolios st = do
 createUser :: EState -> Account -> IO Int64
 createUser st account = execute (th st) q account
   where q = "INSERT INTO Account (username, email, encrypted_password) VALUES (?, ?, ?)"
+
+createEntry :: EState -> String -> String -> IO ()
+createEntry = undefined
 
 -- createEntry :: EState -> String -> String -> IO ()
 -- createEntry st portfolioName stockSymbol = do
@@ -207,17 +207,6 @@ portfolioNameToID st portfolioName = do
              [(portfolioName), (username)]) :: IO [Portfolio]
   let idForPort = (idnum (head portId))
   return idForPort
-
--- createPortfCQL :: String -> String -> String -> String
--- createPortfCQL user portfName uuid =
---   "INSERT INTO evy.portfolios (name, owner, id) VALUES" ++
---   "('" ++ portfName ++ "', '" ++ user ++ "', " ++ uuid ++ ")"
-
--- createEntryCQL :: String -> String -> String -> String -> String -> String
--- createEntryCQL id portfolioID stockSymbol curTime price =
---   "INSERT INTO evy.entry (id, portfolio_id, symbol, type, units, price, when) "
---   ++ "VALUES" ++ " ("++ id ++", " ++ portfolioID ++ ", '" ++ stockSymbol ++
---   "', 'buy', 1, " ++ price ++ ", " ++ curTime ++ ")"
 
 loop :: EState -> IO ()
 loop st = do
@@ -269,7 +258,7 @@ displayPortfolioChosen st name = do
       displayPortfolioChosen st name
     Just "add" -> do
       stockSymbol <- inputPrompt "enter stock symbol"
-      -- createEntry st name stockSymbol
+      createEntry st name stockSymbol
       displayPortfolioChosen st name
     _ ->
       displayPortfolio st
