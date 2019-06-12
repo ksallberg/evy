@@ -143,9 +143,11 @@ createPortfolio st pname = do
 
 lsPortfolio :: EState -> String -> IO (Maybe String)
 lsPortfolio st portfolioName = do
+  let q = "SELECT portfolio_id, symbol, type, \
+           \units, price, ts FROM Entry WHERE portfolio_id=?"
   portfolioID <- portfolioNameToID st portfolioName
   portfolioList <- (query (th st)
-                    "SELECT portfolio_id, symbol, type, units, price, ts FROM Entry WHERE portfolio_id=?"
+                    q
                     [(portfolioID)]) :: IO [Entry]
   let plist2 = [(st, p) | p <- portfolioList]
   listPrompt "_" (map formatStock plist2)
@@ -173,7 +175,8 @@ lsPortfolios st = do
 
 createUser :: EState -> Account -> IO Int64
 createUser st account = execute (th st) q account
-  where q = "INSERT INTO Account (username, email, encrypted_password) VALUES (?, ?, ?)"
+  where q = "INSERT INTO Account (username, email, \
+             \encrypted_password) VALUES (?, ?, ?)"
 
 createEntry :: EState -> String -> String -> IO ()
 createEntry = undefined
