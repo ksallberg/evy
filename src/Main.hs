@@ -63,9 +63,9 @@ instance FromRow Account where
   fromRow = Account <$> field <*> field <*> field
 
 instance ToRow Account where
-  toRow c = [toField (username c),
-             toField (email c),
-             toField (encryptedPassword c)]
+  toRow a = [toField (username a),
+             toField (email a),
+             toField (encryptedPassword a)]
 
 data Portfolio = Portfolio { idnum :: Integer,
                              name :: Text,
@@ -78,6 +78,25 @@ instance FromRow Portfolio where
 instance ToRow Portfolio where
   toRow p = [toField (name p),
              toField (owner p)]
+
+data Entry = Entry { portid :: Integer,
+                     symbol :: Text,
+                     etype :: Text,
+                     units :: Integer,
+                     price :: Double,
+                     ts :: Text
+                   } deriving Show
+
+instance FromRow Entry where
+  fromRow = Entry <$> field <*> field <*> field <*> field <*> field <*> field
+
+instance ToRow Entry where
+  toRow e = [toField (portid e),
+             toField (symbol e),
+             toField (etype e),
+             toField (units e),
+             toField (price e),
+             toField (ts e)]
 
 main :: IO ()
 main = do
@@ -131,37 +150,27 @@ createPortfolio st pname = do
                               owner=Data.Text.pack (fromJust $ user st)}
   where q = "INSERT INTO Portfolio (name, owner) VALUES (?, ?)"
 
--- lsPortfolio :: EState -> String -> IO (Maybe String)
--- lsPortfolio st portfolioName = do
---   portfolioUUID0 <- portfolioNameToID st portfolioName
---   case portfolioUUID0 of
---     Just portfolioUUID -> do
---       let cql = evyEntries ++ portfolioUUID
---           q = fromString cql :: EntryR
---           p = defQueryParams One ()
---       res <- runClient (th st) (query q p)
---       let res2 = [(st, r) | r <- res]
---       listPrompt "_" (map formatStock res2)
---     Nothing -> do
---       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
---       return Nothing
+lsPortfolio :: EState -> String -> IO (Maybe String)
+lsPortfolio st portfolioName = do
+  portfolioUUID0 <- portfolioNameToID st portfolioName
+  let res2 = [(st, ("1", "1", 1.2, "hej", "haj", 23, "2019-02-23 23:32"))]
+  listPrompt "_" (map formatStock res2)
 
--- formatStock (state, (id, portid, price, name, _type, units, date)) =
---   strName ++ (show date) ++ (getDiff state strName price)
---   where strName = (Data.Text.unpack name)
+formatStock (state, (id, portid, price, name, _type, units, date)) =
+  strName ++ (show date) ++ (getDiff state strName price)
+  where strName = (Data.Text.unpack name)
 
--- getDiff :: EState -> String -> Float -> String
--- getDiff state ticker oldprice =
---   case (unsafePerformIO (Stocks.getPrice (iexAPIToken state, ticker))) of
---     Nothing ->
---       "?%"
---     Just newPrice ->
---       " |" ++ show newPrice ++ "| "
+getDiff :: EState -> String -> Float -> String
+getDiff state ticker oldprice =
+  case (unsafePerformIO (Stocks.getPrice (iexAPIToken state, ticker))) of
+    Nothing ->
+      "?%"
+    Just newPrice ->
+      " |" ++ show newPrice ++ "| "
 
 lsPortfolios :: EState -> IO (Maybe String)
 lsPortfolios st = do
   portfolios <- getPortfolios st
-  putStrLn (show portfolios)
   let names = [Data.Text.unpack (name p) | p <- portfolios]
   listPrompt "Portfolio" names
 
@@ -190,17 +199,14 @@ createUser st account = execute (th st) q account
 --     Nothing ->
 --       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
 
--- portfolioNameToID :: EState -> String -> IO (Maybe String)
--- portfolioNameToID st portfolioName = do
---   let cql = "SELECT id FROM evy.portfolios WHERE name='" ++ portfolioName ++ "'"
---       q = fromString cql :: QueryString Client.R () (Identity UUID)
---       p = defQueryParams One ()
---   unBoxed <- runClient (th st) (query q p)
---   case unBoxed of
---     [Identity res] ->
---       return $ Just (toString res)
---     _ ->
---       return Nothing
+portfolioNameToID :: EState -> String -> IO Integer
+portfolioNameToID st portfolioName = do
+  let username = fromJust (user st)
+  portId <- (query (th st)
+             "SELECT id, name, owner FROM Portfolio WHERE name=? AND owner=?"
+             [(portfolioName), (username)]) :: IO [Portfolio]
+  let idForPort = (idnum (head portId))
+  return idForPort
 
 -- createPortfCQL :: String -> String -> String -> String
 -- createPortfCQL user portfName uuid =
@@ -253,23 +259,20 @@ displayPortfolio st = do
       displayPortfolio st
     Just chosenPortfolio -> displayPortfolioChosen st chosenPortfolio
 
+-- when we are inside a portfolio
 displayPortfolioChosen :: EState -> String -> IO ()
-displayPortfolioChosen = undefined
-
--- -- when we are inside a portfolio
--- displayPortfolioChosen :: EState -> String -> IO ()
--- displayPortfolioChosen st name = do
---   portfolioAns <- lsPortfolio st name
---   case portfolioAns of
---     Just "qte" -> do
---       getQuote st
---       displayPortfolioChosen st name
---     Just "add" -> do
---       stockSymbol <- inputPrompt "enter stock symbol"
---       createEntry st name stockSymbol
---       displayPortfolioChosen st name
---     _ ->
---       displayPortfolio st
+displayPortfolioChosen st name = do
+  portfolioAns <- lsPortfolio st name
+  case portfolioAns of
+    Just "qte" -> do
+      getQuote st
+      displayPortfolioChosen st name
+    Just "add" -> do
+      stockSymbol <- inputPrompt "enter stock symbol"
+      -- createEntry st name stockSymbol
+      displayPortfolioChosen st name
+    _ ->
+      displayPortfolio st
 
 login :: EState -> IO EState
 login st = do
