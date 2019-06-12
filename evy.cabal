@@ -30,6 +30,7 @@ executable evy
                , microlens-th
                , vector
                , ansi-terminal
+               , postgresql-simple
                , stocks
   other-modules: Login
                , IntroMenu
