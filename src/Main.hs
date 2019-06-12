@@ -178,23 +178,27 @@ createUser st account = execute (th st) q account
   where q = "INSERT INTO Account (username, email, \
              \encrypted_password) VALUES (?, ?, ?)"
 
-createEntry :: EState -> String -> String -> IO ()
+createEntry :: EState -> String -> String -> IO Int64
 createEntry st portfolioName stockSymbol = do
   randUUID <- nextRandom
   portfolioID <- portfolioNameToID st portfolioName
   curT <- getCurrentTime
   priceAsk <- Stocks.getPrice (iexAPIToken st, stockSymbol)
   case priceAsk of
-    Nothing ->
+    Nothing -> do
       putStrLn $ "Error: could not fetch price for " ++ stockSymbol
+      return 0
     Just (price) -> do
       putStrLn $ "add price was" ++ (show price)
-      -- let timestamp = "'" ++ (take 19 (show curT)) ++ "-0200'"
-      --     q = fromString (createEntryCQL (toString randUUID)
-      --                     portfolioUUID stockSymbol
-      --                     timestamp (show price)) :: EntryW
-      --     p = mkQueryParams
-      -- runClient (th st) (write q p)
+      let q = "INSERT INTO Entry (portfolio_id, symbol, type, \
+               \units, price, ts) VALUES (?, ?, ?, ?, ?, ?)"
+          entry = Entry {portid=portfolioID,
+                         symbol=Data.Text.pack stockSymbol,
+                         etype="buy",
+                         units=10,
+                         price=price,
+                         ts=curT}
+      execute (th st) q entry
 
 portfolioNameToID :: EState -> String -> IO Integer
 portfolioNameToID st portfolioName = do
