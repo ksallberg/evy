@@ -179,28 +179,22 @@ createUser st account = execute (th st) q account
              \encrypted_password) VALUES (?, ?, ?)"
 
 createEntry :: EState -> String -> String -> IO ()
-createEntry = undefined
-
--- createEntry :: EState -> String -> String -> IO ()
--- createEntry st portfolioName stockSymbol = do
---   randUUID <- nextRandom
---   portfolioUUID0 <- portfolioNameToID st portfolioName
---   curT <- getCurrentTime
---   case portfolioUUID0 of
---     Just portfolioUUID -> do
---       priceAsk <- Stocks.getPrice (iexAPIToken st, stockSymbol)
---       case priceAsk of
---         Nothing ->
---           putStrLn $ "Error: could not fetch price for " ++ stockSymbol
---         Just (price) -> do
---           let timestamp = "'" ++ (take 19 (show curT)) ++ "-0200'"
---               q = fromString (createEntryCQL (toString randUUID)
---                               portfolioUUID stockSymbol
---                               timestamp (show price)) :: EntryW
---               p = mkQueryParams
---           runClient (th st) (write q p)
---     Nothing ->
---       putStrLn $ "Error: portfolio '" ++ portfolioName ++ "' is not existing"
+createEntry st portfolioName stockSymbol = do
+  randUUID <- nextRandom
+  portfolioID <- portfolioNameToID st portfolioName
+  curT <- getCurrentTime
+  priceAsk <- Stocks.getPrice (iexAPIToken st, stockSymbol)
+  case priceAsk of
+    Nothing ->
+      putStrLn $ "Error: could not fetch price for " ++ stockSymbol
+    Just (price) -> do
+      putStrLn $ "add price was" ++ (show price)
+      -- let timestamp = "'" ++ (take 19 (show curT)) ++ "-0200'"
+      --     q = fromString (createEntryCQL (toString randUUID)
+      --                     portfolioUUID stockSymbol
+      --                     timestamp (show price)) :: EntryW
+      --     p = mkQueryParams
+      -- runClient (th st) (write q p)
 
 portfolioNameToID :: EState -> String -> IO Integer
 portfolioNameToID st portfolioName = do
