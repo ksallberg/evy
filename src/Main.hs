@@ -34,11 +34,11 @@ import Register (registerPrompt)
 import Login (loginPrompt)
 import IntroMenu (introMenuPrompt)
 import List (listPrompt)
+import EntryList (entryListPrompt)
 
 import Database.PostgreSQL.Simple
-import Database.PostgreSQL.Simple.ToField
-import Database.PostgreSQL.Simple.FromRow
-import Database.PostgreSQL.Simple.ToRow
+
+import Types
 
 connectionInfo :: String -> IO Connection
 connectionInfo pw = connect defaultConnectInfo {
@@ -47,56 +47,6 @@ connectionInfo pw = connect defaultConnectInfo {
   connectUser = "kristian",
   connectPassword = pw
   }
-
-data EState = EState {
-  th   :: Connection,
-  user :: Maybe String,
-  iexAPIToken :: String
-}
-
-data Account = Account { username :: Text,
-                         email :: Text,
-                         encryptedPassword :: Text
-                       } deriving Show
-
-instance FromRow Account where
-  fromRow = Account <$> field <*> field <*> field
-
-instance ToRow Account where
-  toRow a = [toField (username a),
-             toField (email a),
-             toField (encryptedPassword a)]
-
-data Portfolio = Portfolio { idnum :: Integer,
-                             name :: Text,
-                             owner :: Text
-                           } deriving Show
-
-instance FromRow Portfolio where
-  fromRow = Portfolio <$> field <*> field <*> field
-
-instance ToRow Portfolio where
-  toRow p = [toField (name p),
-             toField (owner p)]
-
-data Entry = Entry { portid :: Integer,
-                     symbol :: Text,
-                     etype :: Text,
-                     units :: Integer,
-                     price :: Double,
-                     ts :: UTCTime
-                   } deriving Show
-
-instance FromRow Entry where
-  fromRow = Entry <$> field <*> field <*> field <*> field <*> field <*> field
-
-instance ToRow Entry where
-  toRow e = [toField (portid e),
-             toField (symbol e),
-             toField (etype e),
-             toField (units e),
-             toField (price e),
-             toField (ts e)]
 
 main :: IO ()
 main = do
@@ -137,7 +87,7 @@ getPortfolios st = do
 createPortfolio :: EState -> String -> IO Int64
 createPortfolio st pname = do
   randUUID <- nextRandom
-  execute (th st) q Portfolio{name=Data.Text.pack pname,
+  execute (th st) q Portfolio{pname=Data.Text.pack pname,
                               owner=Data.Text.pack (fromJust $ user st)}
   where q = "INSERT INTO Portfolio (name, owner) VALUES (?, ?)"
 
@@ -149,15 +99,15 @@ lsPortfolio st portfolioName = do
   portfolioList <- (query (th st)
                     q
                     [(portfolioID)]) :: IO [Entry]
-  let plist2 = [(st, p) | p <- portfolioList]
-  listPrompt "_" (map formatStock plist2)
+  -- let plist2 = [(st, p) | p <- portfolioList]
+  entryListPrompt portfolioList -- (map formatStock plist2)
 
-formatStock (state, Entry{symbol=name,
-                          ts=date,
-                          price=price
-                          }) =
-  strName ++ (show date) ++ (getDiff state strName price)
-  where strName = (Data.Text.unpack name)
+-- formatStock (state, Entry{symbol=name,
+--                           ts=date,
+--                           price=price
+--                           }) =
+--   strName ++ (show date) ++ (getDiff state strName price)
+--   where strName = (Data.Text.unpack name)
 
 getDiff :: EState -> String -> Double -> String
 getDiff state ticker oldprice =
@@ -170,7 +120,7 @@ getDiff state ticker oldprice =
 lsPortfolios :: EState -> IO (Maybe String)
 lsPortfolios st = do
   portfolios <- getPortfolios st
-  let names = [Data.Text.unpack (name p) | p <- portfolios]
+  let names = [Data.Text.unpack (pname p) | p <- portfolios]
   listPrompt "Portfolio" names
 
 createUser :: EState -> Account -> IO Int64

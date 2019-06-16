@@ -32,11 +32,15 @@ executable evy
                , ansi-terminal
                , postgresql-simple
                , stocks
+               , lens
+               , array
   other-modules: Login
                , IntroMenu
                , List
                , Register
                , InputField
+               , Table
+               , EntryList
   default-language:  Haskell2010
 
 source-repository head
