@@ -21,7 +21,13 @@ entryListPrompt i = do
   return (Just "hej")
 
 ui :: [Entry] -> Widget Int
-ui en = renderGainsTable 1 en
+ui en = box
+  where
+    label = str $ "List portfolio contents"
+    box = B.borderWithLabel label $
+          hLimit 225 $
+          vLimit 15 $
+          renderGainsTable 1 en
 
 renderGainsTable :: Int -> [Entry] -> Widget Int
 renderGainsTable n ls =
@@ -42,11 +48,7 @@ totalsRow decimalPlaces =
     , str " "
     , str " "
     , alignRight "Totals:"
-    , alignRight  "h7ej"
-    , alignRight "h6ej"
-    , alignRight "h1aj"
-    , alignRight "h3oj"
-    , alignRight "h5aj"
+    , alignRight  "0"
     ]
     where
         alignRight :: String -> Widget n
