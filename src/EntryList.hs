@@ -10,24 +10,65 @@ import Control.Lens ((&), (^.), (.~), makeLenses)
 import Data.Maybe (fromMaybe)
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Center as C
+import qualified Brick.AttrMap as A
+import qualified Brick.Types as T
+import qualified Data.Vector as Vec
 
 import Types
 
 import Data.Text
 
+desc :: String
+desc = "Press a to add. Press q to get quote. Press Esc to exit."
+
+type AppState = ([Entry], Int)
+
 entryListPrompt :: [Entry] -> IO (Maybe String)
 entryListPrompt i = do
-  _ <- simpleMain (ui i)
-  return (Just "hej")
+  (_, retValue) <- defaultMain theApp (i, 0)
+  case retValue of
+    0 ->
+      return Nothing
+    1 ->
+      return $ Just "add"
+    2 ->
+      return $ Just "qte"
 
-ui :: [Entry] -> Widget Int
-ui en = box
+appEvent :: AppState -> BrickEvent Int e -> EventM Int (Next AppState)
+appEvent = \s ev ->
+            case ev of
+                VtyEvent (Vty.EvResize {})     -> continue s
+                VtyEvent (Vty.EvKey Vty.KEsc [])   -> halt s
+                VtyEvent (Vty.EvKey Vty.KEnter []) -> halt s
+                VtyEvent (Vty.EvKey (Vty.KChar 'a') []) ->
+                  halt (fst s, 1)
+                VtyEvent (Vty.EvKey (Vty.KChar 'q') []) ->
+                  halt ([], 2)
+                _ -> halt s
+
+theApp :: App AppState e Int
+theApp =
+    App { appDraw = ui
+          , appChooseCursor = showFirstCursor
+          , appHandleEvent = appEvent
+          , appStartEvent = return
+          , appAttrMap = const theMap
+          }
+
+theMap :: A.AttrMap
+theMap = A.attrMap Vty.defAttr
+    [
+    ]
+
+ui :: AppState -> [Widget Int]
+ui (en, _) = [box]
   where
     label = str $ "List portfolio contents"
-    box = B.borderWithLabel label $
-          hLimit 225 $
-          vLimit 15 $
-          renderGainsTable 1 en
+    box = vBox [(B.borderWithLabel label $
+                 hLimit 225 $
+                 vLimit 15 $
+                 renderGainsTable 1 en),
+                C.hCenter $ str desc]
 
 renderGainsTable :: Int -> [Entry] -> Widget Int
 renderGainsTable n ls =
