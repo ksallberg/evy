@@ -29,7 +29,7 @@ executable evy
                , vector
                , ansi-terminal
                , postgresql-simple
-               , stocks
+               , iexcloud
                , lens
                , array
   other-modules: Login
