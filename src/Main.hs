@@ -99,7 +99,7 @@ lsPortfolio st portfolioName = do
   portfolioList <- (query (th st)
                     q
                     [(portfolioID)]) :: IO [Entry]
-  portfolioPrompt portfolioList
+  portfolioPrompt st portfolioList
 
 getDiff :: EState -> String -> Double -> String
 getDiff state ticker oldprice =

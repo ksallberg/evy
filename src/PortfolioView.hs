@@ -7,12 +7,14 @@ import qualified Graphics.Vty as Vty
 
 import Brick
 import Control.Lens ((&), (^.), (.~), makeLenses)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Center as C
 import qualified Brick.AttrMap as A
 import qualified Brick.Types as T
-import qualified Data.Vector as Vec
+import qualified Data.Vector as Ve
+import qualified Net.Stocks as Stocks
+import Data.Time.Clock (UTCTime)
 
 import Types
 
@@ -21,11 +23,22 @@ import Data.Text
 desc :: String
 desc = "Press a to add. Press q to get quote. Press Esc to exit."
 
-type AppState = ([Entry], Int)
+data XEntry = XEntry { xportid :: Integer,
+                       xsymbol :: Text,
+                       xetype :: Text,
+                       xunits :: Integer,
+                       xprice :: Double,
+                       xts :: UTCTime,
+                       xcurPrice :: Double
+                     } deriving Show
 
-portfolioPrompt :: [Entry] -> IO (Maybe String)
-portfolioPrompt i = do
-  (_, retValue) <- defaultMain theApp (i, 0)
+type AppState = ([XEntry], Int)
+
+portfolioPrompt :: EState -> [Entry] -> IO (Maybe String)
+portfolioPrompt st i = do
+  curPrices <- getCurrentPrices st i
+  let i' = [transl en price | (price, en) <- Prelude.zip curPrices i]
+  (_, retValue) <- defaultMain theApp (i', 0)
   case retValue of
     0 ->
       return Nothing
@@ -33,6 +46,22 @@ portfolioPrompt i = do
       return $ Just "add"
     2 ->
       return $ Just "qte"
+
+transl :: Entry -> Double -> XEntry
+transl e curPrice = XEntry{xportid = portid e,
+                  xsymbol = symbol e,
+                  xetype = etype e,
+                  xunits = units e,
+                  xprice = price e,
+                  xts = ts e,
+                  xcurPrice = curPrice}
+
+getCurrentPrices :: EState -> [Entry] -> IO [Double]
+getCurrentPrices st entries = do
+  let prices = [Stocks.getPrice (iexAPIToken st, Data.Text.unpack (symbol e))
+               | e <- entries]
+  unboxed <- sequence prices
+  return $ Prelude.map fromJust unboxed
 
 appEvent :: AppState -> BrickEvent Int e -> EventM Int (Next AppState)
 appEvent = \s ev ->
@@ -70,7 +99,7 @@ ui (en, _) = [box]
                  renderGainsTable 1 en),
                 C.hCenter $ str desc]
 
-renderGainsTable :: Int -> [Entry] -> Widget Int
+renderGainsTable :: Int -> [XEntry] -> Widget Int
 renderGainsTable n ls =
     table TableConfig
         { columns =
@@ -95,27 +124,31 @@ totalsRow decimalPlaces =
         alignRight :: String -> Widget n
         alignRight = padLeft Max . str
 
-tableColumns :: String -> [Column Entry]
+tableColumns :: String -> [Column XEntry]
 tableColumns decimalPlaces =
     [ column
         { headerName = "Symbol"
-        , dataSelector = unpack . symbol
+        , dataSelector = unpack . xsymbol
         }
     , column
         { headerName = "Units"
-        , dataSelector = show . units
+        , dataSelector = show . xunits
         }
     , column
         { headerName = "Price"
-        , dataSelector = show . price
+        , dataSelector = show . xprice
+        }
+    , column
+        { headerName = "CurPrice"
+        , dataSelector = show . xcurPrice
         }
     , column
         { headerName = "Type"
-        , dataSelector = unpack . etype
+        , dataSelector = unpack . xetype
         }
     , column
         { headerName = "Timestamp"
-        , dataSelector = show . ts
+        , dataSelector = show . xts
         }
     ]
     where
