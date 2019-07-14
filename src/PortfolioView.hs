@@ -6,7 +6,6 @@ import           Table
 import qualified Graphics.Vty as Vty
 
 import Brick
-import Control.Lens ((&), (^.), (.~), makeLenses)
 import Data.Maybe (fromMaybe, fromJust)
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Center as C
@@ -17,6 +16,7 @@ import qualified Net.Stocks as Stocks
 import Data.Time.Clock (UTCTime)
 
 import Types
+import Util (getDec)
 
 import Data.Text (unpack, Text(..))
 
@@ -59,7 +59,7 @@ transl e curPrice = XEntry{xportid = portid e,
                   xdiff = getDiff e curPrice}
 
 getDiff :: Entry -> Double -> String
-getDiff entry curPrice = sign ++ (getDec (show pcent))
+getDiff entry curPrice = sign ++ (getDec 2 (show pcent))
   where
     orig = price entry
     diff = curPrice - orig
@@ -69,14 +69,6 @@ getDiff entry curPrice = sign ++ (getDec (show pcent))
                "+"
              False ->
                "-"
-
-getDec :: String -> String
-getDec "0" = "0"
-getDec str = beforeDot ++ "." ++ take 2 afterDot
-  where
-    beforeDot = takeWhile (/= '.') str
-    afterDot = tail $ dropWhile (/= '.') str
-
 getCurrentPrices :: EState -> [Entry] -> IO [Double]
 getCurrentPrices st entries = do
   let prices = [Stocks.getPrice (iexAPIToken st, unpack (symbol e))
