@@ -99,15 +99,7 @@ lsPortfolio st portfolioName = do
   portfolioList <- (query (th st)
                     q
                     [(portfolioID)]) :: IO [Entry]
-  -- let plist2 = [(st, p) | p <- portfolioList]
-  portfolioPrompt portfolioList -- (map formatStock plist2)
-
--- formatStock (state, Entry{symbol=name,
---                           ts=date,
---                           price=price
---                           }) =
---   strName ++ (show date) ++ (getDiff state strName price)
---   where strName = (Data.Text.unpack name)
+  portfolioPrompt portfolioList
 
 getDiff :: EState -> String -> Double -> String
 getDiff state ticker oldprice =
