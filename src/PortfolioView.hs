@@ -18,7 +18,7 @@ import Data.Time.Clock (UTCTime)
 
 import Types
 
-import Data.Text
+import Data.Text (unpack, Text(..))
 
 desc :: String
 desc = "Press a to add. Press q to get quote. Press Esc to exit."
@@ -38,7 +38,7 @@ type AppState = ([XEntry], Int)
 portfolioPrompt :: EState -> [Entry] -> IO (Maybe String)
 portfolioPrompt st i = do
   curPrices <- getCurrentPrices st i
-  let i' = [transl en price | (price, en) <- Prelude.zip curPrices i]
+  let i' = [transl en price | (price, en) <- zip curPrices i]
   (_, retValue) <- defaultMain theApp (i', 0)
   case retValue of
     0 ->
@@ -59,7 +59,7 @@ transl e curPrice = XEntry{xportid = portid e,
                   xdiff = getDiff e curPrice}
 
 getDiff :: Entry -> Double -> String
-getDiff entry curPrice = sign ++ (show pcent)
+getDiff entry curPrice = sign ++ (getDec (show pcent))
   where
     orig = price entry
     diff = curPrice - orig
@@ -70,12 +70,19 @@ getDiff entry curPrice = sign ++ (show pcent)
              False ->
                "-"
 
+getDec :: String -> String
+getDec "0" = "0"
+getDec str = beforeDot ++ "." ++ take 2 afterDot
+  where
+    beforeDot = takeWhile (/= '.') str
+    afterDot = tail $ dropWhile (/= '.') str
+
 getCurrentPrices :: EState -> [Entry] -> IO [Double]
 getCurrentPrices st entries = do
-  let prices = [Stocks.getPrice (iexAPIToken st, Data.Text.unpack (symbol e))
+  let prices = [Stocks.getPrice (iexAPIToken st, unpack (symbol e))
                | e <- entries]
   unboxed <- sequence prices
-  return $ Prelude.map fromJust unboxed
+  return $ fmap fromJust unboxed
 
 appEvent :: AppState -> BrickEvent Int e -> EventM Int (Next AppState)
 appEvent = \s ev ->
