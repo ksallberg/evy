@@ -143,11 +143,15 @@ table config items =
         context <- getContext
         let width = context ^. availWidthL - length (columns config) + 1
             height = context ^. availHeightL
-        render $ renderTable config (fromIntegral width) (fromIntegral height) items
+        render $ renderTable config
+                             (fromIntegral width)
+                             (fromIntegral height)
+                             items
 
 
 -- | Render a fixed-size table.
-renderTable :: (Show n, Ord n) => TableConfig a n -> Width -> Height -> [a] -> Widget n
+renderTable :: (Show n, Ord n) =>
+               TableConfig a n -> Width -> Height -> [a] -> Widget n
 renderTable config w h is =
     vBox
         $ withHeader
@@ -193,7 +197,8 @@ renderTable config w h is =
                         []
                     x : xs ->
                         if n > 0 then
-                            x + 1 + availableSpacePerColumn : distributeWidth (n - 1) xs
+                            x + 1 + availableSpacePerColumn :
+                              distributeWidth (n - 1) xs
                         else
                             x : map (+ availableSpacePerColumn) xs
 

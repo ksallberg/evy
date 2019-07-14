@@ -34,7 +34,7 @@ import Register (registerPrompt)
 import Login (loginPrompt)
 import IntroMenu (introMenuPrompt)
 import List (listPrompt)
-import EntryList (entryListPrompt)
+import PortfolioView (portfolioPrompt)
 
 import Database.PostgreSQL.Simple
 
@@ -100,7 +100,7 @@ lsPortfolio st portfolioName = do
                     q
                     [(portfolioID)]) :: IO [Entry]
   -- let plist2 = [(st, p) | p <- portfolioList]
-  entryListPrompt portfolioList -- (map formatStock plist2)
+  portfolioPrompt portfolioList -- (map formatStock plist2)
 
 -- formatStock (state, Entry{symbol=name,
 --                           ts=date,

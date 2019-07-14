@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module EntryList where
+module PortfolioView where
 
 import           Table
 import qualified Graphics.Vty as Vty
@@ -23,8 +23,8 @@ desc = "Press a to add. Press q to get quote. Press Esc to exit."
 
 type AppState = ([Entry], Int)
 
-entryListPrompt :: [Entry] -> IO (Maybe String)
-entryListPrompt i = do
+portfolioPrompt :: [Entry] -> IO (Maybe String)
+portfolioPrompt i = do
   (_, retValue) <- defaultMain theApp (i, 0)
   case retValue of
     0 ->
