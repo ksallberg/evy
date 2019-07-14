@@ -23,13 +23,14 @@ import Data.Text
 desc :: String
 desc = "Press a to add. Press q to get quote. Press Esc to exit."
 
-data XEntry = XEntry { xportid :: Integer,
-                       xsymbol :: Text,
-                       xetype :: Text,
-                       xunits :: Integer,
-                       xprice :: Double,
-                       xts :: UTCTime,
-                       xcurPrice :: Double
+data XEntry = XEntry { xportid   :: Integer,
+                       xsymbol   :: Text,
+                       xetype    :: Text,
+                       xunits    :: Integer,
+                       xprice    :: Double,
+                       xts       :: UTCTime,
+                       xcurPrice :: Double,
+                       xdiff     :: String
                      } deriving Show
 
 type AppState = ([XEntry], Int)
@@ -54,7 +55,20 @@ transl e curPrice = XEntry{xportid = portid e,
                   xunits = units e,
                   xprice = price e,
                   xts = ts e,
-                  xcurPrice = curPrice}
+                  xcurPrice = curPrice,
+                  xdiff = getDiff e curPrice}
+
+getDiff :: Entry -> Double -> String
+getDiff entry curPrice = sign ++ (show pcent)
+  where
+    orig = price entry
+    diff = curPrice - orig
+    pcent = (diff / orig) * 100
+    sign = case pcent >= 0 of
+             True ->
+               "+"
+             False ->
+               "-"
 
 getCurrentPrices :: EState -> [Entry] -> IO [Double]
 getCurrentPrices st entries = do
@@ -85,9 +99,7 @@ theApp =
           }
 
 theMap :: A.AttrMap
-theMap = A.attrMap Vty.defAttr
-    [
-    ]
+theMap = A.attrMap Vty.defAttr []
 
 ui :: AppState -> [Widget Int]
 ui (en, _) = [box]
@@ -141,6 +153,10 @@ tableColumns decimalPlaces =
     , column
         { headerName = "CurPrice"
         , dataSelector = show . xcurPrice
+        }
+    , column
+        { headerName = "Change"
+        , dataSelector = xdiff
         }
     , column
         { headerName = "Type"
