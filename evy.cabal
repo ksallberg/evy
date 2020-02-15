@@ -32,6 +32,8 @@ executable evy
                , iexcloud
                , lens
                , array
+               , http-conduit == 2.2.4
+               , bytestring == 0.10.8.2
   other-modules: Login
                , IntroMenu
                , List

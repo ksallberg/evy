@@ -40,6 +40,10 @@ import Database.PostgreSQL.Simple
 
 import Types
 
+import Network.HTTP.Conduit
+import qualified Data.ByteString.Lazy.Char8 as L8
+
+
 connectionInfo :: String -> IO Connection
 connectionInfo pw = connect defaultConnectInfo {
   connectHost = "10.0.1.253",
@@ -50,10 +54,23 @@ connectionInfo pw = connect defaultConnectInfo {
 
 main :: IO ()
 main = do
-  q <- Logger.new (Logger.setLogLevel Logger.Fatal Logger.defSettings)
-  pw <- getEnv "EVYPW"
-  c <- connectionInfo (pw)
-  loop EState{user = Nothing, th = c, iexAPIToken=""}
+  apa
+  -- q <- Logger.new (Logger.setLogLevel Logger.Fatal Logger.defSettings)
+  -- pw <- getEnv "EVYPW"
+  -- c <- connectionInfo (pw)
+  -- loop EState{user = Nothing, th = c, iexAPIToken=""}
+
+
+apa :: IO ()
+apa = do
+  x <- getNonJSONData "goog"
+  case x of
+    Right bytestr -> putStrLn (L8.unpack bytestr)
+    Left _ -> putStrLn "error"
+
+getNonJSONData :: String -> IO (Either SomeException L8.ByteString)
+getNonJSONData ticker = try $ simpleHttp query
+  where query = "https://query1.finance.yahoo.com/v7/finance/options/" ++ ticker
 
 ui :: Widget ()
 ui =
