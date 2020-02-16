@@ -72,8 +72,7 @@ getDiff entry curPrice = sign ++ (getDec 2 (show pcent))
                "-"
 getCurrentPrices :: EState -> [Entry] -> IO [Double]
 getCurrentPrices st entries = do
-  let prices = [Stocks.getPrice (iexAPIToken st, unpack (symbol e))
-               | e <- entries]
+  let prices = [Stocks.getPrice (unpack (symbol e)) | e <- entries]
   unboxed <- sequence prices
   return $ fmap fromJust unboxed
 

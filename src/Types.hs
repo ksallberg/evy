@@ -10,8 +10,7 @@ import Data.Time.Clock (UTCTime)
 
 data EState = EState {
   th   :: Connection,
-  user :: Maybe String,
-  iexAPIToken :: String
+  user :: Maybe String
 }
 
 data Account = Account { username :: Text,

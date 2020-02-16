@@ -1,3 +1,5 @@
+-- currently using Yahoo API (maybe not officially supported)
+
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -158,7 +160,7 @@ makeLenses ''Quote
 makeLenses ''Option
 makeLenses ''Call
 
-getPrice :: (String, String) -> IO (Maybe Double)
+getPrice :: String -> IO (Maybe Double)
 getPrice ticker = do
   t <- getTicker ticker
   case t of
@@ -177,8 +179,8 @@ getPrice ticker = do
 getPrice' wrapper =
   wrapper ^. optionChain . result ^? ix 0 . quote . regularMarketPrice
 
-getTicker :: (String, String) -> IO (Maybe Wrapper)
-getTicker (_token, ticker) = do
+getTicker :: String -> IO (Maybe Wrapper)
+getTicker ticker = do
   x <- getNonJSONData ticker
   case x of
     Right bytestr -> do

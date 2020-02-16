@@ -52,7 +52,7 @@ main = do
   q <- Logger.new (Logger.setLogLevel Logger.Fatal Logger.defSettings)
   pw <- getEnv "EVYPW"
   c <- connectionInfo (pw)
-  loop EState{user = Nothing, th = c, iexAPIToken=""}
+  loop EState{user = Nothing, th = c}
 
 ui :: Widget ()
 ui =
@@ -102,7 +102,7 @@ lsPortfolio st portfolioName = do
 
 getDiff :: EState -> String -> Double -> String
 getDiff state ticker oldprice =
-  case (unsafePerformIO (Stocks.getPrice (iexAPIToken state, ticker))) of
+  case (unsafePerformIO (Stocks.getPrice ticker)) of
     Nothing ->
       "?%"
     Just newPrice ->
@@ -120,21 +120,21 @@ createUser st account = execute (th st) q account
              \encrypted_password) VALUES (?, ?, ?)"
 
 createEntry :: EState -> String -> String -> IO Int64
-createEntry st portfolioName stockSymbol = do
+createEntry st portfolioName ticker = do
   randUUID <- nextRandom
   portfolioID <- portfolioNameToID st portfolioName
   curT <- getCurrentTime
-  priceAsk <- Stocks.getPrice (iexAPIToken st, stockSymbol)
+  priceAsk <- Stocks.getPrice ticker
   case priceAsk of
     Nothing -> do
-      putStrLn $ "Error: could not fetch price for " ++ stockSymbol
+      putStrLn $ "Error: could not fetch price for " ++ ticker
       return 0
     Just (price) -> do
       putStrLn $ "add price was" ++ (show price)
       let q = "INSERT INTO Entry (portfolio_id, symbol, type, \
                \units, price, ts) VALUES (?, ?, ?, ?, ?, ?)"
           entry = Entry {portid=portfolioID,
-                         symbol=Data.Text.pack stockSymbol,
+                         symbol=Data.Text.pack ticker,
                          etype="buy",
                          units=10,
                          price=price,
@@ -171,8 +171,8 @@ preLogin st = do
 
 getQuote :: EState -> IO ()
 getQuote st = do
-  stockName <- inputPrompt "enter stock name"
-  pr <- Stocks.getPrice (iexAPIToken st, stockName)
+  ticker <- inputPrompt "enter stock ticker"
+  pr <- Stocks.getPrice ticker
   _ <- inputPrompt $ "price: " ++ show (fromJust pr)
   return ()
 
@@ -199,8 +199,8 @@ displayPortfolioChosen st name = do
       getQuote st
       displayPortfolioChosen st name
     Just "add" -> do
-      stockSymbol <- inputPrompt "enter stock symbol"
-      createEntry st name stockSymbol
+      ticker <- inputPrompt "enter stock symbol"
+      createEntry st name ticker
       displayPortfolioChosen st name
     _ ->
       displayPortfolio st
@@ -212,8 +212,7 @@ login st = do
                                        (pack (md5s (Str password)))
   case loginRes of
     True -> do
-      apiToken <- getEnv "IEXAPITOKEN"
-      return st{user = Just username, iexAPIToken = apiToken}
+      return st{user = Just username}
     False -> do
       return st
 
