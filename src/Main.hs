@@ -21,8 +21,7 @@ import System.IO
 import System.IO.Unsafe (unsafePerformIO)
 
 import qualified System.Logger as Logger
-import qualified Net.Stocks as Stocks
-import qualified Net.IEX.PriceTime as PriceTime
+import qualified Stocks as Stocks
 
 import Brick
 import Brick.Widgets.Center

@@ -1,5 +1,5 @@
 name:                evy
-version:             0.1.0.2
+version:             0.1.0.3
 synopsis:            the app
 description:         ...
 homepage:            none
@@ -29,9 +29,11 @@ executable evy
                , vector
                , ansi-terminal
                , postgresql-simple
-               , iexcloud
                , lens
                , array
+               , http-conduit
+               , bytestring
+               , aeson
   other-modules: Login
                , IntroMenu
                , List
@@ -40,6 +42,8 @@ executable evy
                , Table
                , PortfolioView
                , Types
+               , Stocks
+               , Util
   default-language:  Haskell2010
 
 source-repository head
