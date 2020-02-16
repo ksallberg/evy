@@ -12,9 +12,10 @@ import qualified Brick.Widgets.Center as C
 import qualified Brick.AttrMap as A
 import qualified Brick.Types as T
 import qualified Data.Vector as Ve
-import qualified Net.Stocks as Stocks
 import Data.Time.Clock (UTCTime)
 
+
+import Stocks
 import Types
 import Util (getDec)
 
