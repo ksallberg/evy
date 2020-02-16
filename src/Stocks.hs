@@ -4,6 +4,7 @@
 module Stocks (getPrice) where
 
 import Control.Exception
+import Control.Lens
 import Data.Aeson hiding (Result)
 import Data.Maybe
 import GHC.Generics
@@ -150,15 +151,31 @@ instance FromJSON Option where
 instance FromJSON Call where
   parseJSON = genericParseJSON customCall
 
+makeLenses ''Wrapper
+makeLenses ''InnerWrapper
+makeLenses ''Result
+makeLenses ''Quote
+makeLenses ''Option
+makeLenses ''Call
+
 getPrice :: (String, String) -> IO (Maybe Double)
 getPrice ticker = do
   t <- getTicker ticker
   case t of
     Nothing ->
       return Nothing
-    (Just wrapper) -> do
-      let q = _quote $ head ((_result . _optionChain) wrapper)
-      return (Just (_regularMarketPrice q))
+    (Just wrapper) ->
+      return $ getPrice' wrapper
+
+{- this is a lens version to get regularMarketPrice which is
+   deep down in the hierarchy of data structures.
+
+   it is similar to object.something.somethingelse in C
+
+   "ix 0" means the first list element
+-}
+getPrice' wrapper =
+  wrapper ^. optionChain . result ^? ix 0 . quote . regularMarketPrice
 
 getTicker :: (String, String) -> IO (Maybe Wrapper)
 getTicker (_token, ticker) = do
